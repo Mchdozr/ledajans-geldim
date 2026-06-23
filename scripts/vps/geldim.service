@@ -1,0 +1,18 @@
+[Unit]
+Description=Ledajans Geldim
+After=network.target mariadb.service mysql.service
+
+[Service]
+WorkingDirectory=/var/www/geldim
+ExecStart=/usr/bin/dotnet /var/www/geldim/Ledajans.Server.dll
+Restart=always
+RestartSec=10
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+Environment=ConnectionStrings__DefaultConnection=REPLACE_CONN
+Environment=Jwt__Key=REPLACE_JWT
+Environment=Seed__AdminPassword=REPLACE_ADMIN
+
+[Install]
+WantedBy=multi-user.target
