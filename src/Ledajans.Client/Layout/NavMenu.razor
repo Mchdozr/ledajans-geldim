@@ -1,0 +1,25 @@
+﻿<MudNavMenu Class="pa-2">
+    <AuthorizeView Roles="Employee">
+        <MudText Typo="Typo.overline" Class="px-3 pt-3 pb-1" Style="color:#636e72;font-weight:600;">MENÜ</MudText>
+        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.TouchApp" IconColor="Color.Primary">
+            Geldim
+        </MudNavLink>
+        <MudNavLink Href="gecmisim" Icon="@Icons.Material.Filled.History" IconColor="Color.Primary">
+            Giriş Geçmişim
+        </MudNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Admin">
+        <MudText Typo="Typo.overline" Class="px-3 pt-3 pb-1" Style="color:#636e72;font-weight:600;">YÖNETİM</MudText>
+
+        <MudNavLink Href="admin/users" Icon="@Icons.Material.Filled.People" IconColor="Color.Primary">Kullanıcılar</MudNavLink>
+
+        <MudNavLink Href="admin/geofence" Icon="@Icons.Material.Filled.MyLocation" IconColor="Color.Primary">Konum Ayarı</MudNavLink>
+
+        <MudNavLink Href="admin/reports" Icon="@Icons.Material.Filled.Assessment" IconColor="Color.Primary">Raporlar</MudNavLink>
+
+    </AuthorizeView>
+
+</MudNavMenu>
+
+

@@ -1,0 +1,145 @@
+@page "/admin/geofence"
+@using System.Globalization
+@attribute [Authorize(Roles = "Admin")]
+@implements IDisposable
+@inject GeofenceService GeofenceService
+@inject GeolocationService GeolocationService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Konum Ayarı - Ledajans</PageTitle>
+
+<div class="page-header mb-4">
+    <MudText Typo="Typo.h5">Konum Ayarı</MudText>
+    <div class="subtitle">Ofis geofence alanını harita üzerinden belirleyin</div>
+</div>
+
+<MudGrid>
+    <MudItem xs="12" md="5">
+        <MudCard Elevation="0" Class="ledajans-card">
+            <MudCardContent>
+                <MudTextField @bind-Value="_model.Name" Label="Konum Adı" Variant="Variant.Outlined" Class="mb-3" />
+                <MudNumericField T="double" @bind-Value="_model.Latitude" Label="Enlem (Latitude)"
+                                 Variant="Variant.Outlined" Culture="@CultureInfo.InvariantCulture"
+                                 Format="0.############" HideSpinButtons="true"
+                                 Class="mb-3" Immediate="false" OnBlur="SyncMap" />
+                <MudNumericField T="double" @bind-Value="_model.Longitude" Label="Boylam (Longitude)"
+                                 Variant="Variant.Outlined" Culture="@CultureInfo.InvariantCulture"
+                                 Format="0.############" HideSpinButtons="true"
+                                 Class="mb-3" Immediate="false" OnBlur="SyncMap" />
+                <MudNumericField @bind-Value="_model.RadiusMeters" Label="Yarıçap (metre)" Variant="Variant.Outlined"
+                                 Min="10" Max="100000" Class="mb-3" OnBlur="SyncRadius" />
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.MyLocation" Class="mb-3" OnClick="UseMyLocation">
+                    Konumumu Kullan
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Save" OnClick="Save" Disabled="_saving">
+                    Kaydet
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
+        <MudText Typo="Typo.caption" Class="d-block mt-2 mud-text-secondary">
+            Haritaya tıklayarak veya işaretçiyi sürükleyerek konumu seçebilirsiniz.
+        </MudText>
+    </MudItem>
+    <MudItem xs="12" md="7">
+        <MudPaper Elevation="0" Class="ledajans-card pa-1">
+            <div id="geofenceMap" style="height: 460px; width: 100%; border-radius: 8px;"></div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private GeofenceDto _model = new() { Name = "Ledajans Ofis", Latitude = 41.0082, Longitude = 28.9784, RadiusMeters = 150 };
+    private bool _saving;
+    private bool _mapReady;
+    private bool _syncingMap;
+    private DotNetObjectReference<Geofence>? _ref;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var existing = await GeofenceService.GetAsync();
+        if (existing is not null) _model = existing;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ref = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("ledajansMap.init", "geofenceMap",
+                _model.Latitude, _model.Longitude, _model.RadiusMeters, _ref);
+            _mapReady = true;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnMapClick(double lat, double lng)
+    {
+        var newLat = Math.Round(lat, 8);
+        var newLng = Math.Round(lng, 8);
+        if (Math.Abs(_model.Latitude - newLat) < 0.00000001 && Math.Abs(_model.Longitude - newLng) < 0.00000001)
+            return Task.CompletedTask;
+
+        _model.Latitude = newLat;
+        _model.Longitude = newLng;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task SyncMap()
+    {
+        if (!_mapReady || _syncingMap) return;
+        _syncingMap = true;
+        try
+        {
+            await JS.InvokeVoidAsync("ledajansMap.setView", _model.Latitude, _model.Longitude, _model.RadiusMeters);
+        }
+        finally
+        {
+            _syncingMap = false;
+        }
+    }
+
+    private async Task SyncRadius()
+    {
+        if (_mapReady)
+            await JS.InvokeVoidAsync("ledajansMap.updateRadius", _model.RadiusMeters);
+    }
+
+    private async Task UseMyLocation()
+    {
+        try
+        {
+            var pos = await GeolocationService.GetCurrentPositionAsync();
+            _model.Latitude = Math.Round(pos.Latitude, 8);
+            _model.Longitude = Math.Round(pos.Longitude, 8);
+            await SyncMap();
+        }
+        catch (JSException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task Save()
+    {
+        _saving = true;
+        var result = await GeofenceService.UpdateAsync(_model);
+        _saving = false;
+
+        if (result is not null)
+        {
+            _model = result;
+            Snackbar.Add("Konum kaydedildi.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kayıt başarısız.", Severity.Error);
+        }
+    }
+
+    public void Dispose() => _ref?.Dispose();
+}

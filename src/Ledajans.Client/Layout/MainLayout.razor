@@ -1,0 +1,101 @@
+﻿@inherits LayoutComponentBase
+
+@inject AuthService AuthService
+
+@inject NavigationManager Navigation
+
+
+
+<MudLayout>
+
+    <MudAppBar Elevation="0" Class="ledajans-appbar">
+
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@ToggleDrawer" />
+        <span class="ledajans-brand-text ml-2">LEDAJANS</span>
+        <MudSpacer />
+
+        <AuthorizeView>
+
+            <Authorized>
+
+                <MudChip T="string" Size="Size.Small" Style="background:rgba(255,255,255,0.2);color:#fff;" Class="mr-2 d-none d-sm-flex">
+
+                    @context.User.FindFirst("fullName")?.Value
+
+                </MudChip>
+
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Dense="true">
+
+                    <MudText Typo="Typo.body2" Class="px-4 py-2" Style="font-weight:600;">
+
+                        @context.User.FindFirst("fullName")?.Value
+
+                    </MudText>
+
+                    <MudDivider />
+
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout">Çıkış Yap</MudMenuItem>
+
+                </MudMenu>
+
+            </Authorized>
+
+        </AuthorizeView>
+
+    </MudAppBar>
+
+
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
+
+               Variant="@DrawerVariant.Responsive" Style="border-right:1px solid #ece5df;">
+
+        <div class="ledajans-drawer-header">
+            <div class="ledajans-brand-text">LEDAJANS</div>
+            <div class="brand-sub">Yoklama Sistemi</div>
+        </div>
+
+        <NavMenu />
+
+    </MudDrawer>
+
+
+
+    <MudMainContent Class="ledajans-main">
+
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-5 px-4">
+
+            @Body
+
+        </MudContainer>
+
+    </MudMainContent>
+
+</MudLayout>
+
+
+
+@code {
+
+    private bool _drawerOpen = true;
+
+
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+
+
+    private async Task Logout()
+
+    {
+
+        await AuthService.LogoutAsync();
+
+        Navigation.NavigateTo("login", forceLoad: false);
+
+    }
+
+}
+
+

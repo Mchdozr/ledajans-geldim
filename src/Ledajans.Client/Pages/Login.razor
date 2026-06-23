@@ -1,0 +1,83 @@
+@page "/login"
+@layout EmptyLayout
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Giriş - Ledajans Geldim</PageTitle>
+
+<div class="login-bg">
+    <MudPaper Elevation="0" Class="login-card pa-8" Square="false">
+        <div class="d-flex flex-column align-center mb-6">
+            <div class="login-logo mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Style="font-size:2rem;" />
+            </div>
+            <MudText Typo="Typo.h5" Align="Align.Center" Style="font-weight:700;color:#2d3436;">Ledajans Geldim</MudText>
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary mt-1">
+                Konum tabanlı yoklama sistemi
+            </MudText>
+        </div>
+
+        <EditForm Model="_model" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+            <MudTextField @bind-Value="_model.UserName" Label="Kullanıcı Adı"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person"
+                          For="@(() => _model.UserName)" />
+            <MudTextField @bind-Value="_model.Password" Label="Şifre" InputType="InputType.Password"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock"
+                          For="@(() => _model.Password)" />
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4" Dense="true" Variant="Variant.Outlined">@_error</MudAlert>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       FullWidth="true" Size="Size.Large" Class="mt-6 checkin-btn" Disabled="_loading">
+                @if (_loading)
+                {
+                    <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
+                    <span>Giriş yapılıyor...</span>
+                }
+                else
+                {
+                    <span>Giriş Yap</span>
+                }
+            </MudButton>
+        </EditForm>
+    </MudPaper>
+</div>
+
+@code {
+    private readonly LoginRequest _model = new();
+    private bool _loading;
+    private string? _error;
+
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+            Navigation.NavigateTo(state.User.IsInRole(Roles.Admin) ? "admin/users" : "");
+    }
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _error = null;
+        var error = await AuthService.LoginAsync(_model);
+        _loading = false;
+
+        if (error is null)
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            var defaultUrl = state.User.IsInRole(Roles.Admin) ? "admin/users" : "";
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? defaultUrl : Uri.UnescapeDataString(ReturnUrl));
+        }
+        else
+            _error = error;
+    }
+}

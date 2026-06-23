@@ -1,0 +1,148 @@
+﻿@page "/"
+@attribute [Authorize]
+@inject AttendanceService AttendanceService
+@inject GeolocationService GeolocationService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Geldim - Ledajans</PageTitle>
+
+<div class="page-header text-center mb-2">
+    <MudText Typo="Typo.h5">Geldim</MudText>
+    <div class="subtitle">Ofis alanı içindeyken girişinizi işaretleyin</div>
+</div>
+
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="12" sm="10" md="7" lg="6">
+        <MudPaper Class="ledajans-card ledajans-card-accent" Elevation="0">
+            <div class="checkin-hero">
+                @if (_loadingStatus)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" Class="my-8" />
+                }
+                else if (_hasCheckedIn)
+                {
+                    <div class="checkin-icon-wrap success">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size:3.5rem;" />
+                    </div>
+                    <MudText Typo="Typo.h5" Style="font-weight:700;">Bugün geldiniz ✓</MudText>
+                    <MudText Typo="Typo.body1" Class="mud-text-secondary mt-2">
+                        @TurkishFormat.FormatDateTime(_checkInLocal)
+                    </MudText>
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Class="mt-4">
+                        Kayıt tamamlandı
+                    </MudChip>
+                }
+                else
+                {
+                    <div class="checkin-icon-wrap">
+                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" Style="font-size:3.5rem;" />
+                    </div>
+                    <MudText Typo="Typo.h5" Style="font-weight:700;">Henüz işaretlemediniz</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2 mb-5">
+                        Konum izni vererek ofis sınırı içindeyken butona basın.
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.TouchApp" Disabled="_processing"
+                               OnClick="HandleCheckIn" Class="checkin-btn">
+                        @if (_processing)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
+                            <span>Konum alınıyor...</span>
+                        }
+                        else
+                        {
+                            <span>GELDİM</span>
+                        }
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(_message))
+                    {
+                        <MudAlert Severity="@_severity" Class="mt-5" Variant="Variant.Outlined" Dense="true">@_message</MudAlert>
+                    }
+                }
+            </div>
+        </MudPaper>
+
+        <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-4 mud-text-secondary">
+            Konum doğrulaması güvenlik için sunucu tarafında yapılır.
+        </MudText>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool _loadingStatus = true;
+    private bool _processing;
+    private bool _hasCheckedIn;
+    private DateTime? _checkInLocal;
+    private string? _message;
+    private Severity _severity = Severity.Info;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.IsInRole(Roles.Admin))
+        {
+            Navigation.NavigateTo("admin/users", replace: true);
+            return;
+        }
+
+        await LoadStatus();
+    }
+
+    private async Task LoadStatus()
+    {
+        _loadingStatus = true;
+        try
+        {
+            var status = await AttendanceService.GetTodayAsync();
+            _hasCheckedIn = status.HasCheckedIn;
+            _checkInLocal = status.CheckInUtc?.ToLocalTime();
+        }
+        finally
+        {
+            _loadingStatus = false;
+        }
+    }
+
+    private async Task HandleCheckIn()
+    {
+        _processing = true;
+        _message = null;
+        try
+        {
+            var pos = await GeolocationService.GetCurrentPositionAsync();
+            var result = await AttendanceService.CheckInAsync(new CheckInRequest
+            {
+                Latitude = pos.Latitude,
+                Longitude = pos.Longitude,
+                Accuracy = pos.Accuracy
+            });
+
+            _message = result.Message;
+            _severity = result.Success ? Severity.Success : Severity.Warning;
+
+            if (result.Success)
+            {
+                Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
+                await LoadStatus();
+            }
+        }
+        catch (JSException ex)
+        {
+            _message = ex.Message;
+            _severity = Severity.Error;
+        }
+        catch (Exception)
+        {
+            _message = "Beklenmeyen bir hata oluştu. Tekrar deneyin.";
+            _severity = Severity.Error;
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

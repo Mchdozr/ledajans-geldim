@@ -1,0 +1,473 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject UserService UserService
+@inject ReportService ReportService
+@inject GeolocationService GeolocationService
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Kullanıcılar - Ledajans</PageTitle>
+
+<div class="admin-users-page">
+    <div class="admin-users-toolbar">
+        <div class="admin-users-toolbar-start">
+            <MudText Typo="Typo.h6" Class="admin-users-title">Kullanıcılar</MudText>
+            @if (!_loading)
+            {
+                <span class="admin-users-count">@_users.Count</span>
+            }
+        </div>
+        <MudTextField @bind-Value="_search" Placeholder="Ara..." Variant="Variant.Outlined"
+                      Margin="Margin.Dense" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="admin-users-search" Immediate="true" Clearable="true" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreate"
+                   Class="admin-users-add-btn">
+            Yeni Kullanıcı Ekle
+        </MudButton>
+    </div>
+
+    <div class="admin-users-table-wrap">
+        <MudTable Items="_users" Loading="_loading" Hover="true" Dense="true" Striped="true"
+                  Breakpoint="Breakpoint.None" Elevation="0"
+                  Filter="FilterUsers">
+            <HeaderContent>
+                <MudTh Class="admin-users-col-employee">Çalışan</MudTh>
+                <MudTh Class="admin-users-col-role d-none d-md-table-cell">Rol</MudTh>
+                <MudTh Class="admin-users-col-status">Durum</MudTh>
+                <MudTh Class="admin-users-col-actions"></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Class="admin-users-col-employee">
+                    <div class="user-cell" role="button" tabindex="0"
+                         @onclick="@(() => OpenHistory(context))"
+                         @onkeydown="@(e => KeyOpenHistory(e, context))">
+                        <span class="user-avatar">@GetInitials(context.FullName)</span>
+                        <span class="user-cell-text">
+                            <span class="user-cell-name">@context.FullName</span>
+                            <span class="user-cell-meta">@@@context.UserName</span>
+                            @if (!string.IsNullOrWhiteSpace(context.Email))
+                            {
+                                <span class="user-cell-meta">@context.Email</span>
+                            }
+                        </span>
+                    </div>
+                </MudTd>
+                <MudTd Class="admin-users-col-role d-none d-md-table-cell">
+                    <span class="role-pill @(context.Role == "Admin" ? "role-pill-admin" : "")">
+                        @(context.Role == "Admin" ? "Yönetici" : "Çalışan")
+                    </span>
+                </MudTd>
+                <MudTd Class="admin-users-col-status">
+                    <span class="status-pill @(context.IsActive ? "status-active" : "status-inactive")">
+                        <span class="status-dot"></span>
+                        @(context.IsActive ? "Aktif" : "Pasif")
+                    </span>
+                </MudTd>
+                <MudTd Class="admin-users-col-actions">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
+                             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        <MudMenuItem Icon="@Icons.Material.Filled.History" IconColor="Color.Primary"
+                                     OnClick="@(() => OpenHistory(context))">
+                            Giriş geçmişi
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit" IconColor="Color.Primary"
+                                     OnClick="@(() => OpenEdit(context))">
+                            Düzenle
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.LockReset" IconColor="Color.Warning"
+                                     OnClick="@(() => OpenPassword(context))">
+                            Şifre
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error"
+                                     OnClick="@(() => DeleteUser(context))">
+                            Sil
+                        </MudMenuItem>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="admin-users-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.PeopleOutline" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body2">Kullanıcı bulunamadı.</MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+    </div>
+</div>
+
+<MudDialog @bind-Visible="_editVisible" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.subtitle1">@(_isNew ? "Yeni Kullanıcı" : "Düzenle")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-dialog-content">
+        <MudTextField @bind-Value="_fullName" Label="Ad Soyad" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        @if (_isNew)
+        {
+            <MudTextField @bind-Value="_userName" Label="Kullanıcı Adı" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        }
+        <MudTextField @bind-Value="_email" Label="E-posta (opsiyonel)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        @if (_isNew)
+        {
+            <MudTextField @bind-Value="_password" Label="Şifre" InputType="InputType.Password"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+        }
+        <MudSelect @bind-Value="_role" Label="Rol" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem Value="@("Employee")">Çalışan</MudSelectItem>
+            <MudSelectItem Value="@("Admin")">Yönetici</MudSelectItem>
+        </MudSelect>
+        @if (!_isNew)
+        {
+            <MudTextField @bind-Value="_editPassword" Label="Yeni Şifre (opsiyonel)" InputType="InputType.Password"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          HelperText="Doldurursanız şifre güncellenir" />
+            <MudSwitch @bind-Value="_isActive" Label="Aktif" Color="Color.Primary" />
+        }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _editVisible = false)" Size="Size.Small">İptal</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="SaveUser">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_passwordVisible" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.subtitle1">Şifre Değiştir</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-dialog-content">
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">@_selectedFullName · @_selectedUserName</MudText>
+        <MudTextField @bind-Value="_newPassword" Label="Yeni Şifre" InputType="InputType.Password"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _passwordVisible = false)" Size="Size.Small">İptal</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="SavePassword">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_historyVisible" Options="_historyDialogOptions">
+    <TitleContent>
+        @if (_historyUser is not null)
+        {
+            <div class="admin-history-header">
+                <span class="user-avatar user-avatar-sm">@GetInitials(_historyUser.FullName)</span>
+                <div>
+                    <MudText Typo="Typo.subtitle2">@_historyUser.FullName</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@@@_historyUser.UserName</MudText>
+                </div>
+            </div>
+        }
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-dialog-content admin-history-dialog">
+        @if (_historyUser is not null)
+        {
+            <div class="admin-history-filters">
+                <MudDatePicker @bind-Date="_historyFrom" Label="Başlangıç" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Clearable="true" DateFormat="dd.MM.yyyy" />
+                <MudDatePicker @bind-Date="_historyTo" Label="Bitiş" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Clearable="true" DateFormat="dd.MM.yyyy" />
+                <MudIconButton Icon="@Icons.Material.Filled.FilterAlt" Color="Color.Primary" Size="Size.Small"
+                               OnClick="LoadHistory" title="Filtrele" />
+            </div>
+
+            @if (_historyLoading)
+            {
+                <div class="admin-history-loading">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+                </div>
+            }
+            else if (_historyRecords.Count == 0)
+            {
+                <div class="admin-history-empty">Kayıt yok.</div>
+            }
+            else
+            {
+                <div class="admin-history-meta">
+                    <span>@_historyRecords.Count kayıt</span>
+                </div>
+                <div class="admin-history-list">
+                    @foreach (var record in _historyRecords)
+                    {
+                        <div class="admin-history-row">
+                            <div class="admin-history-date">
+                                <span class="admin-history-day">@record.LocalDate.Day</span>
+                                <span class="admin-history-month">@record.LocalDate.ToString("MMM", TurkishFormat.Culture)</span>
+                            </div>
+                            <div class="admin-history-body">
+                                <span class="admin-history-time">
+                                    @TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")
+                                </span>
+                                <span class="admin-history-detail">
+                                    @record.DistanceMeters.ToString("F0") m
+                                    @if (!string.IsNullOrWhiteSpace(record.IpAddress))
+                                    {
+                                        <span> · @record.IpAddress</span>
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="admin-history-actions d-flex align-center" style="width:100%">
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Download"
+                   OnClick="ExportHistory" Disabled="_historyExporting || _historyUser is null">
+            CSV
+        </MudButton>
+        <MudSpacer />
+        <MudButton OnClick="@(() => _historyVisible = false)" Size="Size.Small">Kapat</MudButton>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<UserDto> _users = new();
+    private bool _loading = true;
+    private string _search = "";
+
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true };
+    private readonly DialogOptions _historyDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+    private bool _editVisible;
+    private bool _isNew;
+    private string? _editingId;
+    private string _fullName = "";
+    private string _userName = "";
+    private string? _email;
+    private string _password = "";
+    private string _editPassword = "";
+    private string _role = "Employee";
+    private bool _isActive = true;
+
+    private bool _passwordVisible;
+    private string? _selectedId;
+    private string _selectedFullName = "";
+    private string _selectedUserName = "";
+    private string _newPassword = "";
+
+    private bool _historyVisible;
+    private bool _historyLoading;
+    private bool _historyExporting;
+    private UserDto? _historyUser;
+    private List<AttendanceReportItem> _historyRecords = new();
+    private DateTime? _historyFrom;
+    private DateTime? _historyTo;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private bool FilterUsers(UserDto user) =>
+        string.IsNullOrWhiteSpace(_search)
+        || user.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || user.UserName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || (user.Email?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static string GetInitials(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..1].ToUpperInvariant();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void KeyOpenHistory(KeyboardEventArgs e, UserDto user)
+    {
+        if (e.Key is "Enter" or " ")
+            _ = OpenHistory(user);
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _users = await UserService.GetAllAsync();
+        _loading = false;
+    }
+
+    private void OpenCreate()
+    {
+        _isNew = true;
+        _editingId = null;
+        _fullName = ""; _userName = ""; _email = null; _password = ""; _editPassword = "";
+        _role = "Employee"; _isActive = true;
+        _editVisible = true;
+    }
+
+    private void OpenEdit(UserDto user)
+    {
+        _isNew = false;
+        _editingId = user.Id;
+        _fullName = user.FullName; _email = user.Email; _role = user.Role; _isActive = user.IsActive;
+        _editPassword = "";
+        _editVisible = true;
+    }
+
+    private async Task SaveUser()
+    {
+        if (string.IsNullOrWhiteSpace(_fullName))
+        {
+            Snackbar.Add("Ad soyad gerekli.", Severity.Warning);
+            return;
+        }
+
+        (bool ok, string? error) result;
+        if (_isNew)
+        {
+            result = await UserService.CreateAsync(new CreateUserRequest
+            {
+                UserName = _userName, FullName = _fullName, Email = _email,
+                Password = _password, Role = _role
+            });
+        }
+        else
+        {
+            result = await UserService.UpdateAsync(_editingId!, new UpdateUserRequest
+            {
+                FullName = _fullName, Email = _email, Role = _role, IsActive = _isActive
+            });
+        }
+
+        if (!result.ok)
+        {
+            Snackbar.Add(result.error ?? "Hata.", Severity.Error);
+            return;
+        }
+
+        if (!_isNew && !string.IsNullOrWhiteSpace(_editPassword))
+        {
+            if (_editPassword.Length < 6)
+            {
+                Snackbar.Add("Şifre en az 6 karakter olmalı.", Severity.Warning);
+                return;
+            }
+
+            var (pwdOk, pwdErr) = await UserService.SetPasswordAsync(_editingId!,
+                new SetPasswordRequest { Password = _editPassword });
+            if (!pwdOk)
+            {
+                Snackbar.Add(pwdErr ?? "Şifre güncellenemedi.", Severity.Error);
+                return;
+            }
+        }
+
+        Snackbar.Add(!_isNew && !string.IsNullOrWhiteSpace(_editPassword)
+            ? "Kullanıcı ve şifre güncellendi."
+            : "Kaydedildi.", Severity.Success);
+        _editVisible = false;
+        await Load();
+    }
+
+    private void OpenPassword(UserDto user)
+    {
+        _selectedId = user.Id;
+        _selectedFullName = user.FullName;
+        _selectedUserName = user.UserName;
+        _newPassword = "";
+        _passwordVisible = true;
+    }
+
+    private async Task SavePassword()
+    {
+        if (_newPassword.Length < 6)
+        {
+            Snackbar.Add("Şifre en az 6 karakter olmalı.", Severity.Warning);
+            return;
+        }
+
+        var (ok, error) = await UserService.SetPasswordAsync(_selectedId!, new SetPasswordRequest { Password = _newPassword });
+        if (ok)
+        {
+            Snackbar.Add("Şifre güncellendi.", Severity.Success);
+            _passwordVisible = false;
+        }
+        else
+        {
+            Snackbar.Add(error ?? "Hata.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteUser(UserDto user)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Silinsin mi?",
+            $"{user.FullName} kullanıcısı ve tüm yoklama kayıtları silinecek.",
+            yesText: "Sil", cancelText: "Vazgeç");
+
+        if (confirm == true)
+        {
+            var (ok, error) = await UserService.DeleteAsync(user.Id);
+            if (ok)
+            {
+                Snackbar.Add("Silindi.", Severity.Success);
+                await Load();
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Hata.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenHistory(UserDto user)
+    {
+        _historyUser = user;
+        _historyFrom = null;
+        _historyTo = null;
+        _historyVisible = true;
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        if (_historyUser is null) return;
+
+        _historyLoading = true;
+        _historyRecords = await ReportService.GetAsync(
+            ToDateOnly(_historyFrom),
+            ToDateOnly(_historyTo),
+            _historyUser.Id);
+        _historyLoading = false;
+    }
+
+    private async Task ExportHistory()
+    {
+        if (_historyUser is null) return;
+
+        _historyExporting = true;
+        try
+        {
+            var url = ReportService.BuildExportUrl(
+                ToDateOnly(_historyFrom),
+                ToDateOnly(_historyTo),
+                _historyUser.Id);
+            var bytes = await Http.GetByteArrayAsync(url);
+            var safeName = _historyUser.UserName.Replace(' ', '_');
+            await GeolocationService.DownloadAsync(
+                $"{safeName}_giris_gecmisi_{DateTime.Now:yyyyMMdd}.csv",
+                "text/csv",
+                bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Dışa aktarma başarısız.", Severity.Error);
+        }
+        finally
+        {
+            _historyExporting = false;
+        }
+    }
+
+    private static DateOnly? ToDateOnly(DateTime? dt) => dt is null ? null : DateOnly.FromDateTime(dt.Value);
+}

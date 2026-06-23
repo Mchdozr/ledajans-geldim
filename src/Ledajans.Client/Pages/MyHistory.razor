@@ -1,0 +1,74 @@
+@page "/gecmisim"
+@attribute [Authorize]
+@inject AttendanceService AttendanceService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Giriş Geçmişim - Ledajans</PageTitle>
+
+<div class="page-header">
+    <MudText Typo="Typo.h5">Giriş Geçmişim</MudText>
+    <div class="subtitle">Tüm "Geldim" kayıtlarınız</div>
+</div>
+
+<MudPaper Class="ledajans-card pa-4" Elevation="0">
+    @if (_loading)
+    {
+        <div class="text-center py-8">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="history-empty">
+            <MudIcon Icon="@Icons.Material.Filled.EventBusy" Style="font-size:3rem;color:#f46f2c;opacity:0.5;" Class="mb-3" />
+            <MudText Typo="Typo.body1">Henüz kayıt yok</MudText>
+            <MudText Typo="Typo.caption" Class="mt-1">İlk girişinizi "Geldim" sayfasından yapabilirsiniz.</MudText>
+        </div>
+    }
+    else
+    {
+        <MudText Typo="Typo.caption" Class="mb-3 mud-text-secondary">
+            Toplam @_items.Count kayıt
+        </MudText>
+
+        @foreach (var item in _items)
+        {
+            <div class="history-item">
+                <div class="history-date-badge">
+                    <span class="day">@item.LocalDate.Day</span>
+                    <span class="month">@TurkishFormat.FormatDate(item.LocalDate, "MMM")</span>
+                </div>
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                        @TurkishFormat.FormatDate(item.LocalDate, "dddd, dd MMMM yyyy")
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Giriş saati: @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
+                    </MudText>
+                </div>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+                    @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
+                </MudChip>
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    private List<MyAttendanceHistoryItem> _items = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.IsInRole(Roles.Admin))
+        {
+            Navigation.NavigateTo("admin/users", replace: true);
+            return;
+        }
+
+        _items = await AttendanceService.GetMyHistoryAsync();
+        _loading = false;
+    }
+}

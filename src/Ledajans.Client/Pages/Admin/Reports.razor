@@ -1,0 +1,166 @@
+@page "/admin/reports"
+@attribute [Authorize(Roles = "Admin")]
+@inject ReportService ReportService
+@inject UserService UserService
+@inject GeolocationService GeolocationService
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Raporlar - Ledajans</PageTitle>
+
+<div class="admin-reports-page">
+    <div class="page-header admin-reports-header">
+        <MudText Typo="Typo.h5">Yoklama Raporları</MudText>
+        <div class="subtitle">Tüm çalışan giriş kayıtları</div>
+    </div>
+
+    <MudPaper Elevation="0" Class="ledajans-card admin-reports-filters pa-3 pa-sm-4 mb-3 mb-sm-4">
+        <div class="admin-reports-filter-grid">
+            <MudDatePicker @bind-Date="_from" Label="Başlangıç" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+            <MudDatePicker @bind-Date="_to" Label="Bitiş" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+            <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Variant="Variant.Outlined"
+                       Margin="Margin.Dense" Clearable="true" Class="admin-reports-filter-user">
+                <MudSelectItem T="string" Value="@(null)">Tümü</MudSelectItem>
+                @foreach (var u in _users)
+                {
+                    <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+                }
+            </MudSelect>
+            <div class="admin-reports-filter-actions d-flex gap-2 align-center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Search" OnClick="Load" Class="flex-grow-1">
+                    Filtrele
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Download" OnClick="Export"
+                           Disabled="_exporting" Class="admin-reports-export-btn">
+                    CSV
+                </MudButton>
+            </div>
+        </div>
+    </MudPaper>
+
+    <div class="d-none d-sm-block admin-reports-table-wrap">
+        <MudTable Items="_items" Loading="_loading" Hover="true" Dense="true" Striped="true"
+                  Breakpoint="Breakpoint.None" Elevation="0" Class="ledajans-card"
+                  Filter="null" @bind-SelectedItem="_selected">
+            <HeaderContent>
+                <MudTh>Tarih</MudTh>
+                <MudTh>Ad Soyad</MudTh>
+                <MudTh>Kullanıcı Adı</MudTh>
+                <MudTh>Giriş Saati</MudTh>
+                <MudTh>IP Adresi</MudTh>
+                <MudTh>Uzaklık (m)</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@TurkishFormat.FormatDate(context.LocalDate)</MudTd>
+                <MudTd>@context.FullName</MudTd>
+                <MudTd>@context.UserName</MudTd>
+                <MudTd>@TurkishFormat.FormatTimeLocal(context.CheckInUtc)</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.caption">@(context.IpAddress ?? "—")</MudText>
+                </MudTd>
+                <MudTd>@context.DistanceMeters</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>Kayıt bulunamadı.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
+    </div>
+
+    <div class="d-sm-none admin-reports-mobile">
+        @if (_loading)
+        {
+            <MudPaper Elevation="0" Class="ledajans-card admin-reports-loading pa-4">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+            </MudPaper>
+        }
+        else if (_items.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="ledajans-card admin-reports-empty pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Kayıt bulunamadı.</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="ledajans-card admin-reports-mobile-card pa-0">
+                <div class="admin-reports-meta">
+                    <span>@_items.Count kayıt</span>
+                </div>
+                <div class="admin-history-list admin-reports-list">
+                    @foreach (var record in _items)
+                    {
+                        <div class="admin-history-row admin-reports-row">
+                            <div class="admin-history-date">
+                                <span class="admin-history-day">@record.LocalDate.Day</span>
+                                <span class="admin-history-month">@record.LocalDate.ToString("MMM", TurkishFormat.Culture)</span>
+                            </div>
+                            <div class="admin-history-body admin-reports-body">
+                                <span class="admin-reports-name">@record.FullName</span>
+                                <span class="admin-reports-time">@TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")</span>
+                                <span class="admin-reports-meta-line">
+                                    <span class="admin-reports-user">@@@record.UserName</span>
+                                    <span class="admin-reports-distance">@record.DistanceMeters.ToString("F0") m</span>
+                                    <span class="admin-reports-ip-wrap" title="Giriş IP adresi">
+                                        <span class="admin-reports-ip-label">IP</span>
+                                        <span class="admin-reports-ip">@(string.IsNullOrWhiteSpace(record.IpAddress) ? "—" : record.IpAddress)</span>
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </MudPaper>
+        }
+    </div>
+</div>
+
+@code {
+    private List<AttendanceReportItem> _items = new();
+    private List<UserDto> _users = new();
+    private AttendanceReportItem? _selected;
+    private DateTime? _from = DateTime.Today.AddDays(-30);
+    private DateTime? _to = DateTime.Today;
+    private string? _userId;
+    private bool _loading;
+    private bool _exporting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _users = await UserService.GetAllAsync();
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId);
+        _loading = false;
+    }
+
+    private async Task Export()
+    {
+        _exporting = true;
+        try
+        {
+            var url = ReportService.BuildExportUrl(ToDateOnly(_from), ToDateOnly(_to), _userId);
+            var bytes = await Http.GetByteArrayAsync(url);
+            await GeolocationService.DownloadAsync($"yoklama_{DateTime.Now:yyyyMMdd_HHmmss}.csv", "text/csv", bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Dışa aktarma başarısız.", Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static DateOnly? ToDateOnly(DateTime? dt) => dt is null ? null : DateOnly.FromDateTime(dt.Value);
+}

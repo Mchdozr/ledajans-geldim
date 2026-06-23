@@ -1,0 +1,35 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Bb]in/
+[Oo]bj/
+publish/
+ledajans-geldim-plesk.zip
+*.publishsettings
+
+## Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## User-specific & secrets
+appsettings.*.local.json
+*.env
+secrets.json
+
+## OS
+.DS_Store
+Thumbs.db
