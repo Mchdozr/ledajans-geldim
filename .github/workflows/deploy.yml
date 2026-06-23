@@ -1,0 +1,37 @@
+name: Plesk Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish src/Ledajans.Server/Ledajans.Server.csproj -c Release -o publish
+
+      - name: Temizlik
+        run: |
+          rm -f publish/appsettings.Development.json
+          mkdir -p publish/logs
+          touch publish/logs/.gitkeep
+
+      - name: deploy branch guncelle
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: publish
+          branch: deploy
+          single-commit: true
+          clean: true
+          commit-message: "deploy ${{ github.sha }}"

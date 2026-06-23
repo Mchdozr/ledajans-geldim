@@ -1,14 +1,24 @@
 # Sunucuda git pull sonrasi (Plesk > Git > Ek deploy eylemleri)
-# Plesk ortam degiskeni: PLESK_HTTPDOCS = httpdocs tam yolu (orn. C:\Inetpub\vhosts\domain\httpdocs)
+# Tercih: GitHub Actions deploy branch kullan (FTP gerekmez). Bu script yedek / sunucuda build icin.
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $publishDir = $env:PLESK_HTTPDOCS
 if ([string]::IsNullOrWhiteSpace($publishDir)) {
-    $publishDir = $repoRoot
+    $parent = Split-Path $repoRoot -Leaf
+    if ($parent -eq "source") {
+        $publishDir = Split-Path $repoRoot -Parent
+    } else {
+        $publishDir = $repoRoot
+    }
 }
 
 Write-Host "Publish: $repoRoot -> $publishDir" -ForegroundColor Cyan
+
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    Write-Host "HATA: Sunucuda dotnet SDK yok. GitHub Actions deploy branch kullan." -ForegroundColor Red
+    exit 1
+}
 
 dotnet publish "$repoRoot\src\Ledajans.Server\Ledajans.Server.csproj" `
     -c Release `

@@ -39,26 +39,43 @@ dotnet run --project src/Ledajans.Server
 
 > Üretimde `Jwt:Key` ve admin şifresini ortam değişkenleri veya Plesk `web.config` ile ayarlayın. Geliştirme ayarları `appsettings.Development.json` içindedir (git'e dahil, yalnızca local).
 
-## GitHub + Plesk (Natro) Canlı Güncelleme
+## GitHub + Plesk (önerilen — FTP/ZIP yok)
 
-### 1. GitHub
-Repo: public `ledajans-geldim` — push sonrası GitHub Actions build doğrular.
-
-### 2. Plesk Git bağlantısı
-1. **Web Siteleri** → domain (ör. `geldim.ledajans.com`) → **Git**
-2. **Depo klonla** → `https://github.com/Mchdozr/ledajans-geldim.git`
-3. **Dağıtım yolu:** `source` (httpdocs altında)
-4. **Ek deploy eylemi:**
-   ```
-   powershell.exe -ExecutionPolicy Bypass -File source\scripts\plesk-after-pull.ps1
-   ```
-5. Ortam değişkeni (Plesk veya web.config): `PLESK_HTTPDOCS` = `httpdocs` tam yolu
-6. İlk kurulumda `scripts\plesk-web.config` → `httpdocs\web.config` (SQL, Jwt, admin şifresi)
-7. **.NET Core 8.0**, startup: `Ledajans.Server.dll`, **HTTPS** açık
-
-### 3. Güncelleme akışı
+### Akış
 ```
-git push → Plesk'te "Güncellemeleri çek" veya otomatik deploy → publish → canlı
+git push (main) → GitHub Actions derler → deploy branch → Plesk Git çeker → canlı
+```
+
+### İlk kurulum (bir kez)
+
+1. **GitHub** — `main` branch'e push et (workflow `deploy` branch oluşturur).
+
+2. **Plesk** → `geldim.ledajans.com` → **Git**:
+   - Depo: `https://github.com/Mchdozr/ledajans-geldim.git`
+   - **Dal:** `deploy` (main değil!)
+   - **Dağıtım yolu:** boş bırak veya `/` (doğrudan httpdocs)
+   - Ek deploy eylemi: **gerekmez**
+
+3. **web.config** — Plesk Dosya Yöneticisi → `httpdocs\web.config` (bir kez oluştur):
+   - Şablon: `scripts\plesk-web.config` (MySQL, Jwt, admin şifresi doldur)
+   - `deploy` branch bu dosyayı içermez; sunucudaki kopya korunur.
+
+4. **Plesk** → `.NET Core 8.0` aç, startup: `Ledajans.Server.dll`, SSL (Let's Encrypt).
+
+5. Eski yanlış dosyalar varsa (`src/`, `.git` httpdocs kökünde) sil — sadece publish çıktısı + `web.config` kalsın.
+
+### Güncelleme
+```bash
+git add . && git commit -m "..." && git push
+```
+Plesk Git → **Güncellemeleri çek** (veya otomatik deploy).
+
+Test: `https://geldim.ledajans.com/health`
+
+### Yedek: sunucuda build (dotnet SDK varsa)
+Dağıtım yolu `source`, ek eylem:
+```
+powershell.exe -ExecutionPolicy Bypass -File scripts\plesk-after-pull.ps1
 ```
 
 ## Notlar
