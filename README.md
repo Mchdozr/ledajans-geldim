@@ -4,7 +4,7 @@ Konum tabanlı (geofence) çalışan yoklama PWA'sı. Çalışan, yalnızca ofis
 
 ## Teknoloji
 - .NET 8, Blazor WebAssembly (PWA) + ASP.NET Core API (tek host)
-- Entity Framework Core + SQL Server (LocalDB)
+- Entity Framework Core + MySQL/MariaDB (Plesk)
 - ASP.NET Core Identity + JWT (roller: `Admin`, `Employee`)
 - MudBlazor (UI), Leaflet (konum haritası)
 
@@ -22,7 +22,7 @@ src/
 
 ## Çalıştırma (Visual Studio Enterprise)
 1. `Ledajans.Server` projesini başlangıç projesi yapın.
-2. `appsettings.json` içindeki `ConnectionStrings:DefaultConnection` değerini kontrol edin (varsayılan LocalDB).
+2. `appsettings.Development.json` içindeki MySQL bağlantısını kontrol edin (local MariaDB veya Plesk).
 3. F5 ile çalıştırın. Veritabanı ilk çalıştırmada otomatik oluşturulur (migration + seed).
 
 ### CLI ile
