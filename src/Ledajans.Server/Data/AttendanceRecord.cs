@@ -11,4 +11,6 @@ public class AttendanceRecord
     public double Longitude { get; set; }
     public double DistanceMeters { get; set; }
     public string? IpAddress { get; set; }
+    public bool IsManual { get; set; }
+    public string? AdminNote { get; set; }
 }

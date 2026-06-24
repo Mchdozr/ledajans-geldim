@@ -663,6 +663,64 @@ html, body {
     justify-content: flex-end;
 }
 
+.admin-reports-history-filters {
+    overflow: hidden;
+}
+
+.admin-reports-history-grid.align-end {
+    align-items: flex-end;
+}
+
+.admin-reports-history-filters__head-cell {
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid var(--ledajans-border);
+}
+
+.admin-reports-history-filters__head {
+    padding-bottom: 0.5rem;
+}
+
+.admin-reports-history-filters__title {
+    font-weight: 700 !important;
+    line-height: 1.2;
+}
+
+.admin-reports-history-grid .mud-input-control {
+    width: 100%;
+}
+
+.admin-reports-history-filters__actions-cell {
+    padding-top: 0.625rem;
+    margin-top: 0.125rem;
+    border-top: 1px solid var(--ledajans-border);
+}
+
+.admin-reports-history-filters__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.admin-reports-history-filters__actions .mud-button-root {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+    .admin-reports-history-filters__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-reports-history-filters__actions .mud-button-root {
+        width: 100%;
+    }
+}
+
 .admin-reports-export-btn {
     flex-shrink: 0;
 }

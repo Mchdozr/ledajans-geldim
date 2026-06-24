@@ -1,0 +1,135 @@
+@page "/admin/holidays"
+@attribute [Authorize(Roles = "Admin")]
+@inject NonWorkingDayService NonWorkingDayService
+@inject UserService UserService
+@inject ISnackbar Snackbar
+
+<PageTitle>İzin ve Tatiller - Ledajans</PageTitle>
+
+<div class="page-header mb-3">
+    <MudText Typo="Typo.h5">İzin ve Tatiller</MudText>
+    <div class="subtitle">Bu günlerde çalışanlar gelmeyen sayılmaz</div>
+</div>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-3 pa-sm-4 mb-4">
+    <MudText Typo="Typo.subtitle2" Class="mb-3">Yeni Kayıt</MudText>
+    <MudRadioGroup @bind-Value="_type" Class="mb-3 d-flex gap-4">
+        <MudRadio Value="@NonWorkingDayTypes.Holiday" Color="Color.Primary">Resmi tatil (herkes)</MudRadio>
+        <MudRadio Value="@NonWorkingDayTypes.Leave" Color="Color.Primary">Çalışan izni</MudRadio>
+    </MudRadioGroup>
+    <div class="admin-reports-filter-grid">
+        <MudDatePicker @bind-Date="_date" Label="Tarih" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+        @if (_type == NonWorkingDayTypes.Leave)
+        {
+            <MudSelect T="string" @bind-Value="_userId" Label="Çalışan" Variant="Variant.Outlined" Required="true">
+                @foreach (var u in _employees)
+                {
+                    <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        <MudTextField @bind-Value="_note" Label="Not" Variant="Variant.Outlined" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Add" Disabled="_saving" Class="align-self-end">
+            Ekle
+        </MudButton>
+    </div>
+</MudPaper>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-0">
+    <MudTable Items="_items" Loading="_loading" Dense="true" Hover="true" Striped="true">
+        <HeaderContent>
+            <MudTh>Tarih</MudTh>
+            <MudTh>Tür</MudTh>
+            <MudTh>Çalışan</MudTh>
+            <MudTh>Not</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@TurkishFormat.FormatDate(context.Date)</MudTd>
+            <MudTd>@(context.Type == NonWorkingDayTypes.Holiday ? "Resmi tatil" : "İzin")</MudTd>
+            <MudTd>@(context.UserFullName ?? "Tüm çalışanlar")</MudTd>
+            <MudTd>@(context.Note ?? "—")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                               OnClick="@(() => Delete(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">Kayıt yok.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private List<NonWorkingDayDto> _items = new();
+    private List<UserDto> _employees = new();
+    private string _type = NonWorkingDayTypes.Holiday;
+    private DateTime? _date = DateTime.Today;
+    private string? _userId;
+    private string? _note;
+    private bool _loading;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var users = await UserService.GetAllAsync();
+        _employees = users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        var from = DateOnly.FromDateTime(DateTime.Today.AddMonths(-1));
+        var to = DateOnly.FromDateTime(DateTime.Today.AddMonths(3));
+        _items = await NonWorkingDayService.GetAsync(from, to);
+        _loading = false;
+    }
+
+    private async Task Add()
+    {
+        if (_date is null)
+        {
+            Snackbar.Add("Tarih seçin.", Severity.Warning);
+            return;
+        }
+
+        if (_type == NonWorkingDayTypes.Leave && string.IsNullOrWhiteSpace(_userId))
+        {
+            Snackbar.Add("Çalışan seçin.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        var ok = await NonWorkingDayService.CreateAsync(new CreateNonWorkingDayRequest
+        {
+            Date = DateOnly.FromDateTime(_date.Value),
+            Type = _type,
+            UserId = _type == NonWorkingDayTypes.Leave ? _userId : null,
+            Note = _note
+        });
+        _saving = false;
+
+        if (!ok)
+        {
+            Snackbar.Add("Eklenemedi. Aynı tarih için kayıt olabilir.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Kayıt eklendi.", Severity.Success);
+        _note = null;
+        await Load();
+    }
+
+    private async Task Delete(int id)
+    {
+        if (!await NonWorkingDayService.DeleteAsync(id))
+        {
+            Snackbar.Add("Silinemedi.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Silindi.", Severity.Success);
+        await Load();
+    }
+}

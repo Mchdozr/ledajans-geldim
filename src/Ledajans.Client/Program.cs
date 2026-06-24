@@ -34,6 +34,7 @@ builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<GeofenceService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<NonWorkingDayService>();
 builder.Services.AddScoped<GeolocationService>();
 
 await builder.Build().RunAsync();

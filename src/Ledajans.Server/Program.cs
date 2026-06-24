@@ -40,16 +40,25 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
-        options.Password.RequiredLength = 6;
+        options.Password.RequiredLength = 1;
+        options.Password.RequireDigit = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
         options.Password.RequireNonAlphanumeric = false;
         options.User.RequireUniqueEmail = false;
+        options.User.AllowedUserNameCharacters =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+ " +
+            "çğıöşüÇĞİÖŞÜ";
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
+builder.Services.AddSingleton<ILookupNormalizer, TurkishLookupNormalizer>();
+
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<AttendanceSettings>(builder.Configuration.GetSection(AttendanceSettings.SectionName));
 builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddAuthentication(options =>

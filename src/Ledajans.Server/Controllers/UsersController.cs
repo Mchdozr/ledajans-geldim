@@ -42,6 +42,7 @@ public class UsersController : ControllerBase
             Email = request.Email,
             EmailConfirmed = true,
             FullName = request.FullName,
+            Department = NormalizeDepartment(request.Department),
             IsActive = true
         };
 
@@ -62,6 +63,7 @@ public class UsersController : ControllerBase
         user.FullName = request.FullName;
         user.Email = request.Email;
         user.IsActive = request.IsActive;
+        user.Department = NormalizeDepartment(request.Department);
         await _userManager.UpdateAsync(user);
 
         var newRole = request.Role == Roles.Admin ? Roles.Admin : Roles.Employee;
@@ -105,6 +107,10 @@ public class UsersController : ControllerBase
         FullName = u.FullName,
         Email = u.Email,
         Role = role,
+        Department = u.Department,
         IsActive = u.IsActive
     };
+
+    private static string NormalizeDepartment(string? department)
+        => Departments.All.Contains(department ?? "") ? department! : Departments.Teknik;
 }

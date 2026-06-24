@@ -9,6 +9,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Geofence> Geofences => Set<Geofence>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<NonWorkingDay> NonWorkingDays => Set<NonWorkingDay>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -20,6 +21,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(a => a.User)
                 .WithMany()
                 .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<NonWorkingDay>(e =>
+        {
+            e.HasIndex(n => new { n.Date, n.UserId });
+            e.HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

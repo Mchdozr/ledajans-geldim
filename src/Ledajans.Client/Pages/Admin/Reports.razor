@@ -1,68 +1,247 @@
 @page "/admin/reports"
 @attribute [Authorize(Roles = "Admin")]
 @inject ReportService ReportService
+@inject AttendanceService AttendanceService
 @inject UserService UserService
 @inject GeolocationService GeolocationService
 @inject HttpClient Http
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Raporlar - Ledajans</PageTitle>
 
 <div class="admin-reports-page">
     <div class="page-header admin-reports-header">
         <MudText Typo="Typo.h5">Yoklama Raporları</MudText>
-        <div class="subtitle">Tüm çalışan giriş kayıtları</div>
+        <div class="subtitle">Günlük özet ve geçmiş kayıtlar</div>
     </div>
 
-    <MudPaper Elevation="0" Class="ledajans-card admin-reports-filters pa-3 pa-sm-4 mb-3 mb-sm-4">
-        <div class="admin-reports-filter-grid">
-            <MudDatePicker @bind-Date="_from" Label="Başlangıç" Variant="Variant.Outlined"
-                           Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
-            <MudDatePicker @bind-Date="_to" Label="Bitiş" Variant="Variant.Outlined"
-                           Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
-            <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Variant="Variant.Outlined"
-                       Margin="Margin.Dense" Clearable="true" Class="admin-reports-filter-user">
-                <MudSelectItem T="string" Value="@(null)">Tümü</MudSelectItem>
-                @foreach (var u in _users)
+    <MudPaper Elevation="0" Class="ledajans-card pa-3 pa-sm-4 mb-3 mb-sm-4">
+        <MudSelect T="string" @bind-Value="_department" Label="Departman" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Clearable="true" Class="mb-3" Style="max-width:280px;"
+                   @bind-Value:after="OnDepartmentChanged">
+            <MudSelectItem T="string" Value="@(null)">Tümü</MudSelectItem>
+            @foreach (var d in Departments.All)
+            {
+                <MudSelectItem T="string" Value="@d">@d</MudSelectItem>
+            }
+        </MudSelect>
+
+        <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
+            <div>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700;">
+                    Bugün — @TurkishFormat.FormatDate(_summary.Date)
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @_summary.PresentCount / @_summary.TotalActive çalışan geldi
+                </MudText>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                    Gelen: @_summary.PresentCount
+                </MudChip>
+                @if (_summary.IsCompanyHoliday)
                 {
-                    <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Filled" Size="Size.Small">
+                        Resmi tatil
+                    </MudChip>
                 }
-            </MudSelect>
-            <div class="admin-reports-filter-actions d-flex gap-2 align-center">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Search" OnClick="Load" Class="flex-grow-1">
-                    Filtrele
+                @if (_summary.ExcusedCount > 0)
+                {
+                    <MudChip T="string" Color="Color.Default" Variant="Variant.Filled" Size="Size.Small">
+                        Muaf: @_summary.ExcusedCount
+                    </MudChip>
+                }
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled" Size="Size.Small">
+                    Gelmeyen: @_summary.AbsentCount
+                </MudChip>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenManualDialog">
+                    Manuel Ekle
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Download" OnClick="Export"
-                           Disabled="_exporting" Class="admin-reports-export-btn">
-                    CSV
+                           StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAbsentToday"
+                           Disabled="_exportingAbsent">
+                    Gelmeyenler CSV
                 </MudButton>
             </div>
         </div>
+
+        <MudTabs @bind-ActivePanelIndex="_todayTab" Rounded="true" Class="mt-2">
+            <MudTabPanel Text="@($"Gelenler ({_summary.Present.Count})")" />
+            <MudTabPanel Text="@($"Gelmeyenler ({_summary.Absent.Count})")" />
+            <MudTabPanel Text="@($"Muaf ({_summary.Excused.Count})")" />
+        </MudTabs>
+
+        @if (_summaryLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-3" />
+        }
+        else if (_todayTab == 0)
+        {
+            @if (_summary.Present.Count == 0)
+            {
+                <MudText Class="mt-3 mud-text-secondary">Bugün henüz giriş yok.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Class="mt-3">
+                    <thead>
+                        <tr>
+                            <th>Ad Soyad</th>
+                            <th>Saat (TR)</th>
+                            <th>Durum</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _summary.Present)
+                        {
+                            <tr>
+                                <td>@r.FullName</td>
+                                <td>@TurkishFormat.FormatTimeLocal(r.CheckInUtc)</td>
+                                <td>
+                                    @if (r.IsLate)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Geç kaldı</MudChip>
+                                    }
+                                    @if (r.IsManual)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">Manuel</MudChip>
+                                    }
+                                </td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                   OnClick="@(() => DeleteRecord(r))" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+        else if (_todayTab == 1)
+        {
+            @if (_summary.Absent.Count == 0)
+            {
+                <MudText Class="mt-3 mud-text-secondary">Gelmeyen kayıt yok.</MudText>
+            }
+            else
+            {
+                <MudList T="string" Dense="true" Class="mt-2">
+                    @foreach (var a in _summary.Absent)
+                    {
+                        <MudListItem T="string">
+                            <div class="d-flex align-center justify-space-between w-100">
+                                <span>@a.FullName <span class="mud-text-secondary">(@a.Department)</span></span>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                           OnClick="@(() => QuickManualAdd(a.UserId))">
+                                    Manuel ekle
+                                </MudButton>
+                            </div>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        }
+        else
+        {
+            @if (_summary.Excused.Count == 0)
+            {
+                <MudText Class="mt-3 mud-text-secondary">Muaf kayıt yok.</MudText>
+            }
+            else
+            {
+                <MudList T="string" Dense="true" Class="mt-2">
+                    @foreach (var a in _summary.Excused)
+                    {
+                        <MudListItem T="string">@a.FullName — @a.Department</MudListItem>
+                    }
+                </MudList>
+            }
+        }
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="ledajans-card admin-reports-history-filters pa-3 pa-sm-4 mb-3 mb-sm-4">
+        <MudGrid Spacing="2" Class="admin-reports-history-grid align-end">
+            <MudItem xs="12" Class="admin-reports-history-filters__head-cell">
+                <div class="admin-reports-history-filters__head">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="admin-reports-history-filters__title">Geçmiş Kayıtlar</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Tarih aralığı ve kullanıcıya göre filtreleyin</MudText>
+                    </div>
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker @bind-Date="_from" Label="Başlangıç" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker @bind-Date="_to" Label="Bitiş" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Clearable="true">
+                    <MudSelectItem T="string" Value="@(null)">Tümü</MudSelectItem>
+                    @foreach (var u in _users)
+                    {
+                        <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" Class="admin-reports-history-filters__actions-cell">
+                <div class="admin-reports-history-filters__actions">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Search" OnClick="Load">
+                        Filtrele
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Download" OnClick="Export"
+                               Disabled="_exporting">
+                        Gelenler CSV
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAbsentPeriod"
+                               Disabled="_exportingAbsentPeriod">
+                        Dönem Gelmeyenler
+                    </MudButton>
+                </div>
+            </MudItem>
+        </MudGrid>
     </MudPaper>
 
     <div class="d-none d-sm-block admin-reports-table-wrap">
         <MudTable Items="_items" Loading="_loading" Hover="true" Dense="true" Striped="true"
-                  Breakpoint="Breakpoint.None" Elevation="0" Class="ledajans-card"
-                  Filter="null" @bind-SelectedItem="_selected">
+                  Breakpoint="Breakpoint.None" Elevation="0" Class="ledajans-card">
             <HeaderContent>
                 <MudTh>Tarih</MudTh>
                 <MudTh>Ad Soyad</MudTh>
-                <MudTh>Kullanıcı Adı</MudTh>
-                <MudTh>Giriş Saati</MudTh>
-                <MudTh>IP Adresi</MudTh>
+                <MudTh>Giriş (TR)</MudTh>
+                <MudTh>Durum</MudTh>
                 <MudTh>Uzaklık (m)</MudTh>
+                <MudTh></MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>@TurkishFormat.FormatDate(context.LocalDate)</MudTd>
                 <MudTd>@context.FullName</MudTd>
-                <MudTd>@context.UserName</MudTd>
                 <MudTd>@TurkishFormat.FormatTimeLocal(context.CheckInUtc)</MudTd>
                 <MudTd>
-                    <MudText Typo="Typo.caption">@(context.IpAddress ?? "—")</MudText>
+                    @if (context.IsLate)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Geç kaldı</MudChip>
+                    }
+                    @if (context.IsManual)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">Manuel</MudChip>
+                    }
                 </MudTd>
                 <MudTd>@context.DistanceMeters</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => DeleteRecord(context))" />
+                </MudTd>
             </RowTemplate>
             <NoRecordsContent>
                 <MudText>Kayıt bulunamadı.</MudText>
@@ -104,14 +283,15 @@
                                 <span class="admin-reports-name">@record.FullName</span>
                                 <span class="admin-reports-time">@TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")</span>
                                 <span class="admin-reports-meta-line">
-                                    <span class="admin-reports-user">@@@record.UserName</span>
+                                    @if (record.IsLate)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined" Class="mr-1">Geç</MudChip>
+                                    }
                                     <span class="admin-reports-distance">@record.DistanceMeters.ToString("F0") m</span>
-                                    <span class="admin-reports-ip-wrap" title="Giriş IP adresi">
-                                        <span class="admin-reports-ip-label">IP</span>
-                                        <span class="admin-reports-ip">@(string.IsNullOrWhiteSpace(record.IpAddress) ? "—" : record.IpAddress)</span>
-                                    </span>
                                 </span>
                             </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(() => DeleteRecord(record))" />
                         </div>
                     }
                 </div>
@@ -120,26 +300,73 @@
     </div>
 </div>
 
+<MudDialog @bind-Visible="_manualDialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Manuel Giriş Ekle</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect T="string" @bind-Value="_manualUserId" Label="Çalışan" Variant="Variant.Outlined" Class="mb-3" Required="true">
+            @foreach (var u in _employeeUsers)
+            {
+                <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDatePicker @bind-Date="_manualDate" Label="Tarih" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" Class="mb-3" />
+        <MudTextField @bind-Value="_manualNote" Label="Not (isteğe bağlı)" Variant="Variant.Outlined" Lines="2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _manualDialogOpen = false)">İptal</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveManual" Disabled="_manualSaving">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<AttendanceReportItem> _items = new();
     private List<UserDto> _users = new();
-    private AttendanceReportItem? _selected;
+    private List<UserDto> _employeeUsers = new();
+    private TodaySummaryResponse _summary = new() { Date = DateOnly.FromDateTime(DateTime.Today) };
     private DateTime? _from = DateTime.Today.AddDays(-30);
     private DateTime? _to = DateTime.Today;
     private string? _userId;
     private bool _loading;
+    private bool _summaryLoading;
     private bool _exporting;
+    private bool _exportingAbsent;
+    private bool _exportingAbsentPeriod;
+    private string? _department;
+    private int _todayTab;
+    private bool _manualDialogOpen;
+    private bool _manualSaving;
+    private string? _manualUserId;
+    private DateTime? _manualDate = DateTime.Today;
+    private string? _manualNote;
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
 
     protected override async Task OnInitializedAsync()
     {
         _users = await UserService.GetAllAsync();
+        _employeeUsers = _users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
+        await LoadSummary();
         await Load();
+    }
+
+    private async Task OnDepartmentChanged()
+    {
+        await LoadSummary();
+        await Load();
+    }
+
+    private async Task LoadSummary()
+    {
+        _summaryLoading = true;
+        _summary = await ReportService.GetTodaySummaryAsync(_department);
+        _summaryLoading = false;
     }
 
     private async Task Load()
     {
         _loading = true;
-        _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId);
+        _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId, _department);
         _loading = false;
     }
 
@@ -148,7 +375,7 @@
         _exporting = true;
         try
         {
-            var url = ReportService.BuildExportUrl(ToDateOnly(_from), ToDateOnly(_to), _userId);
+            var url = ReportService.BuildExportUrl(ToDateOnly(_from), ToDateOnly(_to), _userId, _department);
             var bytes = await Http.GetByteArrayAsync(url);
             await GeolocationService.DownloadAsync($"yoklama_{DateTime.Now:yyyyMMdd_HHmmss}.csv", "text/csv", bytes);
         }
@@ -160,6 +387,111 @@
         {
             _exporting = false;
         }
+    }
+
+    private async Task ExportAbsentToday()
+    {
+        _exportingAbsent = true;
+        try
+        {
+            var url = ReportService.BuildAbsentExportUrl(date: _summary.Date, department: _department);
+            var bytes = await Http.GetByteArrayAsync(url);
+            await GeolocationService.DownloadAsync($"gelmeyenler_{_summary.Date:yyyyMMdd}.csv", "text/csv", bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Dışa aktarma başarısız.", Severity.Error);
+        }
+        finally
+        {
+            _exportingAbsent = false;
+        }
+    }
+
+    private async Task ExportAbsentPeriod()
+    {
+        var from = ToDateOnly(_from);
+        var to = ToDateOnly(_to);
+        if (from is null || to is null)
+        {
+            Snackbar.Add("Dönem için başlangıç ve bitiş tarihi seçin.", Severity.Warning);
+            return;
+        }
+
+        _exportingAbsentPeriod = true;
+        try
+        {
+            var url = ReportService.BuildAbsentExportUrl(from: from, to: to, department: _department);
+            var bytes = await Http.GetByteArrayAsync(url);
+            await GeolocationService.DownloadAsync($"gelmeyenler_{from:yyyyMMdd}_{to:yyyyMMdd}.csv", "text/csv", bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Dışa aktarma başarısız.", Severity.Error);
+        }
+        finally
+        {
+            _exportingAbsentPeriod = false;
+        }
+    }
+
+    private void OpenManualDialog()
+    {
+        _manualUserId = null;
+        _manualDate = DateTime.Today;
+        _manualNote = null;
+        _manualDialogOpen = true;
+    }
+
+    private void QuickManualAdd(string userId)
+    {
+        _manualUserId = userId;
+        _manualDate = DateTime.Today;
+        _manualNote = null;
+        _manualDialogOpen = true;
+    }
+
+    private async Task SaveManual()
+    {
+        if (string.IsNullOrWhiteSpace(_manualUserId))
+        {
+            Snackbar.Add("Çalışan seçin.", Severity.Warning);
+            return;
+        }
+
+        _manualSaving = true;
+        var result = await AttendanceService.ManualCheckInAsync(new ManualCheckInRequest
+        {
+            UserId = _manualUserId,
+            LocalDate = _manualDate is null ? null : DateOnly.FromDateTime(_manualDate.Value),
+            Note = _manualNote
+        });
+
+        _manualSaving = false;
+        if (result is null)
+        {
+            Snackbar.Add("Kayıt eklenemedi. Bu tarih için zaten kayıt olabilir.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Manuel kayıt eklendi.", Severity.Success);
+        _manualDialogOpen = false;
+        await LoadSummary();
+        await Load();
+    }
+
+    private async Task DeleteRecord(AttendanceReportItem record)
+    {
+        var ok = await AttendanceService.DeleteAsync(record.Id);
+        if (!ok)
+        {
+            Snackbar.Add("Silinemedi.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Kayıt silindi.", Severity.Success);
+        await LoadSummary();
+        await Load();
     }
 
     private static DateOnly? ToDateOnly(DateTime? dt) => dt is null ? null : DateOnly.FromDateTime(dt.Value);

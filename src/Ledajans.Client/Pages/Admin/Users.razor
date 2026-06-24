@@ -35,6 +35,7 @@
                   Filter="FilterUsers">
             <HeaderContent>
                 <MudTh Class="admin-users-col-employee">Çalışan</MudTh>
+                <MudTh Class="admin-users-col-role d-none d-md-table-cell">Departman</MudTh>
                 <MudTh Class="admin-users-col-role d-none d-md-table-cell">Rol</MudTh>
                 <MudTh Class="admin-users-col-status">Durum</MudTh>
                 <MudTh Class="admin-users-col-actions"></MudTh>
@@ -54,6 +55,9 @@
                             }
                         </span>
                     </div>
+                </MudTd>
+                <MudTd Class="admin-users-col-role d-none d-md-table-cell">
+                    <span class="role-pill">@context.Department</span>
                 </MudTd>
                 <MudTd Class="admin-users-col-role d-none d-md-table-cell">
                     <span class="role-pill @(context.Role == "Admin" ? "role-pill-admin" : "")">
@@ -119,6 +123,12 @@
         <MudSelect @bind-Value="_role" Label="Rol" Variant="Variant.Outlined" Margin="Margin.Dense">
             <MudSelectItem Value="@("Employee")">Çalışan</MudSelectItem>
             <MudSelectItem Value="@("Admin")">Yönetici</MudSelectItem>
+        </MudSelect>
+        <MudSelect @bind-Value="_department" Label="Departman" Variant="Variant.Outlined" Margin="Margin.Dense">
+            @foreach (var d in Departments.All)
+            {
+                <MudSelectItem Value="@d">@d</MudSelectItem>
+            }
         </MudSelect>
         @if (!_isNew)
         {
@@ -251,6 +261,7 @@
     private string _password = "";
     private string _editPassword = "";
     private string _role = "Employee";
+    private string _department = Departments.Teknik;
     private bool _isActive = true;
 
     private bool _passwordVisible;
@@ -301,7 +312,7 @@
         _isNew = true;
         _editingId = null;
         _fullName = ""; _userName = ""; _email = null; _password = ""; _editPassword = "";
-        _role = "Employee"; _isActive = true;
+        _role = "Employee"; _department = Departments.Teknik; _isActive = true;
         _editVisible = true;
     }
 
@@ -309,7 +320,7 @@
     {
         _isNew = false;
         _editingId = user.Id;
-        _fullName = user.FullName; _email = user.Email; _role = user.Role; _isActive = user.IsActive;
+        _fullName = user.FullName; _email = user.Email; _role = user.Role; _department = user.Department; _isActive = user.IsActive;
         _editPassword = "";
         _editVisible = true;
     }
@@ -328,14 +339,14 @@
             result = await UserService.CreateAsync(new CreateUserRequest
             {
                 UserName = _userName, FullName = _fullName, Email = _email,
-                Password = _password, Role = _role
+                Password = _password, Role = _role, Department = _department
             });
         }
         else
         {
             result = await UserService.UpdateAsync(_editingId!, new UpdateUserRequest
             {
-                FullName = _fullName, Email = _email, Role = _role, IsActive = _isActive
+                FullName = _fullName, Email = _email, Role = _role, IsActive = _isActive, Department = _department
             });
         }
 
@@ -347,12 +358,6 @@
 
         if (!_isNew && !string.IsNullOrWhiteSpace(_editPassword))
         {
-            if (_editPassword.Length < 6)
-            {
-                Snackbar.Add("Şifre en az 6 karakter olmalı.", Severity.Warning);
-                return;
-            }
-
             var (pwdOk, pwdErr) = await UserService.SetPasswordAsync(_editingId!,
                 new SetPasswordRequest { Password = _editPassword });
             if (!pwdOk)
@@ -380,9 +385,9 @@
 
     private async Task SavePassword()
     {
-        if (_newPassword.Length < 6)
+        if (string.IsNullOrWhiteSpace(_newPassword))
         {
-            Snackbar.Add("Şifre en az 6 karakter olmalı.", Severity.Warning);
+            Snackbar.Add("Şifre gerekli.", Severity.Warning);
             return;
         }
 

@@ -19,5 +19,8 @@ public static class TurkishFormat
         => value.ToString(format, Culture);
 
     public static string FormatTimeLocal(DateTime utc, string format = "HH:mm")
-        => utc.ToLocalTime().ToString(format, Culture);
+    {
+        var turkey = utc.AddHours(3);
+        return turkey.ToString(format, Culture);
+    }
 }

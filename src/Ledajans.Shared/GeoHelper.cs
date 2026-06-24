@@ -1,4 +1,4 @@
-namespace Ledajans.Server.Services;
+namespace Ledajans.Shared;
 
 public static class GeoHelper
 {

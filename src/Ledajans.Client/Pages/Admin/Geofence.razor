@@ -52,7 +52,13 @@
 </MudGrid>
 
 @code {
-    private GeofenceDto _model = new() { Name = "Ledajans Ofis", Latitude = 41.0082, Longitude = 28.9784, RadiusMeters = 150 };
+    private GeofenceDto _model = new()
+    {
+        Name = OfficeDefaults.Name,
+        Latitude = OfficeDefaults.Latitude,
+        Longitude = OfficeDefaults.Longitude,
+        RadiusMeters = OfficeDefaults.RadiusMeters
+    };
     private bool _saving;
     private bool _mapReady;
     private bool _syncingMap;
