@@ -11,6 +11,7 @@ function Find-PleskExe {
     $candidates = @(
         "${env:ProgramFiles(x86)}\Plesk\admin\bin\plesk.exe",
         "${env:ProgramFiles(x86)}\Parallels\Plesk\admin\bin\plesk.exe",
+        "C:\Plesk Dir\admin\bin\plesk.exe",
         "$env:ProgramFiles\Plesk\admin\bin\plesk.exe"
     )
     foreach ($p in $candidates) { if (Test-Path $p) { return $p } }
@@ -21,12 +22,22 @@ function Find-PleskExe {
 function Find-SiteRoot($pleskExe) {
     if ($pleskExe) {
         $out = & $pleskExe bin site --info $Domain 2>&1 | Out-String
-        if ($out -match "WWW-Root:\s*(.+)") { return $Matches[1].Trim() }
-        if ($out -match "Document root:\s*(.+)") { return $Matches[1].Trim() }
+        if ($out -match "WWW-Root:\s*(.+)") {
+            $p = $Matches[1].Trim()
+            if ($p -notmatch "preview") { return $p }
+        }
+        if ($out -match "Document root:\s*(.+)") {
+            $p = $Matches[1].Trim()
+            if ($p -notmatch "preview") { return $p }
+        }
     }
-    $drives = @("C", "D")
-    foreach ($d in $drives) {
-        $vhosts = "$d`:\Inetpub\vhosts"
+    $searchRoots = @(
+        "C:\Inetpub\vhosts",
+        "D:\Inetpub\vhosts",
+        "C:\Plesk Dir\vhosts",
+        "D:\Plesk Dir\vhosts"
+    )
+    foreach ($vhosts in $searchRoots) {
         if (-not (Test-Path $vhosts)) { continue }
         Get-ChildItem $vhosts -Directory -ErrorAction SilentlyContinue | ForEach-Object {
             $candidates = @(
@@ -35,12 +46,14 @@ function Find-SiteRoot($pleskExe) {
                 (Join-Path $_.FullName "subdomains\geldim"),
                 (Join-Path $_.FullName "subdomains\geldim\httpdocs")
             )
-            foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+            foreach ($c in $candidates) {
+                if ((Test-Path $c) -and $c -notmatch "preview") { return $c }
+            }
         }
     }
-    foreach ($d in $drives) {
-        $found = Get-ChildItem "$d`:\" -Directory -Filter $Domain -Recurse -Depth 6 -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match "vhosts|Inetpub|plesk" } |
+    foreach ($d in @("C", "D")) {
+        $found = Get-ChildItem "$d`:\" -Directory -Filter $Domain -Recurse -Depth 8 -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "vhosts|Inetpub|Plesk" -and $_.FullName -notmatch "preview|error_docs|tmp" } |
             Select-Object -First 1
         if ($found) { return $found.FullName }
     }
@@ -113,7 +126,7 @@ Copy-Item "$src\*" $siteRoot -Recurse -Force
 New-Item -ItemType Directory -Path (Join-Path $siteRoot "logs") -Force | Out-Null
 
 if (Test-Path "$env:SystemRoot\System32\inetsrv\appcmd.exe") {
-    & "$env:SystemRoot\System32\inetsrv\appcmd.exe" recycle apppool /apppool.name:plesk(default) 2>$null
+    & "$env:SystemRoot\System32\inetsrv\appcmd.exe" recycle apppool "/apppool.name:DefaultAppPool" 2>$null
 }
 
 Write-Host ""
