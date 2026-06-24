@@ -1,37 +1,13 @@
-# nginx -> IIS proxy duzeltmesi (disaridan 404 icin)
-# Sunucuda Yonetici PowerShell: .\nginx-fix.ps1
-
+# nginx -> IIS proxy duzeltmesi
 $Domain = "geldim.ledajans.com"
 $Plesk = "C:\Plesk Dir\bin\plesk.exe"
 
-$confDirs = @(
-    "C:\Plesk Dir\var\www\vhosts\system\$Domain\conf",
-    "C:\Plesk Dir\etc\nginx\conf.d\vhosts"
-)
-
 Write-Host "=== nginx fix: $Domain ===" -ForegroundColor Cyan
 
-$targetDir = $null
-foreach ($d in $confDirs) {
-    if (Test-Path $d) { $targetDir = $d; break }
-}
+# Plesk standart yolu olustur
+$standardConf = "C:\Plesk Dir\var\www\vhosts\system\$Domain\conf"
+New-Item -ItemType Directory -Path $standardConf -Force | Out-Null
 
-if (-not $targetDir) {
-    Write-Host "conf klasoru araniyor..." -ForegroundColor Yellow
-    $found = Get-ChildItem "C:\Plesk Dir" -Recurse -Directory -Filter "conf" -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -like "*$Domain*" } | Select-Object -First 1
-    if ($found) { $targetDir = $found.FullName }
-}
-
-if (-not $targetDir) {
-    Write-Host "HATA: nginx conf klasoru bulunamadi." -ForegroundColor Red
-    Get-ChildItem "C:\Plesk Dir\var\www\vhosts\system" -ErrorAction SilentlyContinue | Select-Object Name
-    exit 1
-}
-
-Write-Host "Conf: $targetDir" -ForegroundColor Green
-
-$customFile = Join-Path $targetDir "vhost_nginx.conf"
 $proxyBlock = @"
 location / {
     proxy_pass http://127.0.0.1:7080;
@@ -43,19 +19,19 @@ location / {
 }
 "@
 
-if (Test-Path $customFile) {
-    $existing = Get-Content $customFile -Raw
-    if ($existing -match "proxy_pass") {
-        Write-Host "proxy_pass zaten var." -ForegroundColor Yellow
-    } else {
-        Add-Content $customFile "`n$proxyBlock"
-        Write-Host "proxy_pass eklendi." -ForegroundColor Green
-    }
-} else {
-    Set-Content $customFile $proxyBlock -Encoding ASCII
-    Write-Host "vhost_nginx.conf olusturuldu." -ForegroundColor Green
-}
+$customFile = Join-Path $standardConf "vhost_nginx.conf"
+Set-Content $customFile $proxyBlock -Encoding ASCII
+Write-Host "Yazildi: $customFile" -ForegroundColor Green
+
+# Mevcut nginx conf dosyalarini listele
+Write-Host ""
+Write-Host "geldim iceren conf dosyalari:" -ForegroundColor Yellow
+Get-ChildItem "C:\Plesk Dir" -Recurse -Include "*.conf" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match "geldim|nginx" } |
+    Select-Object -First 15 FullName
 
 & $Plesk repair web -domain-name $Domain -y
+
 Write-Host ""
-Write-Host "Test: curl.exe -k https://$Domain/health"
+Write-Host "Test (sunucu):" -ForegroundColor Cyan
+curl.exe -sk https://$Domain/health
