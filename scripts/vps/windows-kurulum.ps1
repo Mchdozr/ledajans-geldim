@@ -25,7 +25,7 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Invoke-WebRequest -Uri $bundleUrl -OutFile $bundlePath -UseBasicParsing
     Start-Process -FilePath $bundlePath -Args "/quiet /norestart" -Wait
     Write-Host "Kurulum tamam - IIS yeniden baslatiliyor..." -ForegroundColor Green
-    iisreset
+    & "$env:SystemRoot\System32\iisreset.exe" /noforce
 } else {
     Write-Host ".NET zaten kurulu: $(dotnet --version)" -ForegroundColor Green
 }
@@ -68,7 +68,7 @@ Copy-Item "$($extracted.FullName)\*" $httpdocs -Recurse -Force
 "@ | Out-File -FilePath (Join-Path $httpdocs "web.config") -Encoding UTF8
 
 New-Item -ItemType Directory -Path (Join-Path $httpdocs "logs") -Force | Out-Null
-iisreset | Out-Null
+& "$env:SystemRoot\System32\iisreset.exe" /noforce | Out-Null
 
 Write-Host ""
 Write-Host "=== Tamam ===" -ForegroundColor Green
