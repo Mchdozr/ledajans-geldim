@@ -27,6 +27,7 @@ jobs:
           rm -f publish/web.config
           mkdir -p publish/logs
           touch publish/logs/.gitkeep
+          echo "${{ github.sha }}" | cut -c1-7 > publish/wwwroot/version.txt
 
       - name: deploy branch guncelle
         uses: JamesIves/github-pages-deploy-action@v4
