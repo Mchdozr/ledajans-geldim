@@ -16,11 +16,11 @@ window.ledajansGeo = {
         const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : 40);
         const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : 100);
         const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : 45000);
-        const earlyAcceptMs = isPreview ? 3500 : 8000;
+        const earlyAcceptMs = isPreview ? 3500 : 4000;
         const geoOptions = {
             enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: Math.min(timeoutMs, 20000)
+            maximumAge: isPreview ? 0 : 30000,
+            timeout: isPreview ? Math.min(timeoutMs, 15000) : timeoutMs
         };
 
         return new Promise((resolve, reject) => {
@@ -42,7 +42,7 @@ window.ledajansGeo = {
             });
 
             const earlyTimer = setTimeout(() => {
-                if (best && isPreview) finish(() => resolve(toResult(best)));
+                if (best) finish(() => resolve(toResult(best)));
             }, earlyAcceptMs);
 
             const timer = setTimeout(() => {

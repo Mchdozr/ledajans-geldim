@@ -429,11 +429,19 @@
         _distanceMeters = GeoHelper.DistanceMeters(
             _geofence.Latitude, _geofence.Longitude,
             pos.Latitude, pos.Longitude);
+        _withinRadius = GeoHelper.IsWithinGeofence(_distanceMeters.Value, pos.Accuracy, _geofence.RadiusMeters);
         var worstCase = _distanceMeters.Value + pos.Accuracy;
-        _withinRadius = worstCase <= _geofence.RadiusMeters;
         _distanceSeverity = _withinRadius ? Severity.Success
             : worstCase <= _geofence.RadiusMeters * 1.5 ? Severity.Warning
             : Severity.Error;
+    }
+
+    private async Task<GeoPosition> ResolveCheckInPositionAsync()
+    {
+        if (_userLat is not null && _userLng is not null && _userAccuracy is not null)
+            return new GeoPosition(_userLat.Value, _userLng.Value, _userAccuracy.Value);
+
+        return await GeolocationService.GetCheckInPositionAsync();
     }
 
     private async Task HandleCheckIn()
@@ -442,7 +450,7 @@
         _message = null;
         try
         {
-            var pos = await GeolocationService.GetCheckInPositionAsync();
+            var pos = await ResolveCheckInPositionAsync();
             var result = await AttendanceService.CheckInAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,
@@ -486,7 +494,7 @@
         _message = null;
         try
         {
-            var pos = await GeolocationService.GetCheckInPositionAsync();
+            var pos = await ResolveCheckInPositionAsync();
             var result = await AttendanceService.CheckOutAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,

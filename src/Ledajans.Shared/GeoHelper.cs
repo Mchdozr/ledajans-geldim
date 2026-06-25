@@ -16,4 +16,15 @@ public static class GeoHelper
     }
 
     private static double ToRad(double deg) => deg * Math.PI / 180d;
+
+    /// <summary>
+    /// Ölçülen mesafe ofis yarıçapı içindeyse kabul et (kapalı alanda GPS hassasiyeti şişebilir).
+    /// Sınırda ise mesafe + hassasiyet ile değerlendir.
+    /// </summary>
+    public static bool IsWithinGeofence(double distanceMeters, double accuracyMeters, double radiusMeters)
+    {
+        if (distanceMeters <= radiusMeters) return true;
+        var accuracy = accuracyMeters > 0 ? accuracyMeters : 0;
+        return distanceMeters + accuracy <= radiusMeters;
+    }
 }

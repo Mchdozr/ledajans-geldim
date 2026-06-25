@@ -1,7 +1,7 @@
 # web.config kalici yedek — deploy klasoru disinda tutulur, git pull silmez
 param(
     [string]$SiteRoot = "C:\Plesk Vhosts\ledajans.com\geldim.ledajans.com",
-    [string]$PersistPath = "C:\ledajans\config\web.config"
+    [string]$PersistPath = "C:\Ledajans\config\web.config"
 )
 
 $ErrorActionPreference = "Continue"
