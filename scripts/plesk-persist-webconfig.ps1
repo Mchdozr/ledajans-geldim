@@ -10,26 +10,30 @@ New-Item -ItemType Directory -Path (Split-Path $PersistPath -Parent) -Force | Ou
 $configPath = Join-Path $SiteRoot "web.config"
 $backupPath = Join-Path $SiteRoot "web.config.backup"
 
-if (Test-Path $configPath) {
-    Copy-Item $configPath $PersistPath -Force
-    Copy-Item $configPath $backupPath -Force
-    Write-Host "web.config yedeklendi: $PersistPath"
-    exit 0
-}
-
 if (Test-Path $PersistPath) {
     Copy-Item $PersistPath $configPath -Force
     Copy-Item $PersistPath $backupPath -Force
     Write-Host "web.config geri yuklendi: $PersistPath -> $configPath"
-    exit 0
 }
 
-if (Test-Path $backupPath) {
+elseif (Test-Path $backupPath) {
     Copy-Item $backupPath $configPath -Force
     Copy-Item $backupPath $PersistPath -Force
     Write-Host "web.config site yedeginden geri yuklendi."
-    exit 0
 }
 
-Write-Host "web.config bulunamadi. Elle olusturun." -ForegroundColor Yellow
-exit 1
+elseif (Test-Path $configPath) {
+    Copy-Item $configPath $PersistPath -Force
+    Copy-Item $configPath $backupPath -Force
+    Write-Host "web.config yedeklendi: $PersistPath"
+}
+
+else {
+    Write-Host "web.config bulunamadi. Elle olusturun." -ForegroundColor Yellow
+    exit 1
+}
+
+$repairScript = Join-Path $PSScriptRoot "plesk-repair-webconfig.ps1"
+if (Test-Path $repairScript) {
+    & $repairScript -SiteRoot $SiteRoot -PersistPath $PersistPath
+}

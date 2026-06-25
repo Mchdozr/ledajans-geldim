@@ -1,45 +1,36 @@
-# web.config tamamen yeniden yazar — POST 405 / yanlis yapi icin
+# web.config tamamen yeniden yazar — POST/OPTIONS 405 icin
 param(
-    [string]$SiteRoot = "C:\Plesk Vhosts\ledajans.com\geldim.ledajans.com"
+    [string]$SiteRoot = "C:\Plesk Vhosts\ledajans.com\geldim.ledajans.com",
+    [string]$PersistPath = "C:\Ledajans\config\web.config"
 )
 
 $ErrorActionPreference = "Stop"
-$configPath = Join-Path $SiteRoot "web.config"
-$backupPath = Join-Path $SiteRoot "web.config.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
-if (-not (Test-Path $configPath)) {
-    Write-Host "web.config bulunamadi: $configPath" -ForegroundColor Red
-    exit 1
-}
+function Repair-WebConfig {
+    param([string]$ConfigPath)
 
-Copy-Item $configPath $backupPath -Force
-Write-Host "Yedek: $backupPath" -ForegroundColor DarkGray
-
-# Mevcut ortam degiskenlerini koru
-$envVars = @{}
-try {
-    [xml]$old = Get-Content $configPath
-    $nodes = $old.SelectNodes("//environmentVariable")
-    foreach ($n in $nodes) {
-        $name = $n.GetAttribute("name")
-        $value = $n.GetAttribute("value")
-        if ($name) { $envVars[$name] = $value }
+    if (-not (Test-Path $ConfigPath)) {
+        Write-Host "Atlaniyor (yok): $ConfigPath" -ForegroundColor Yellow
+        return
     }
-} catch {
-    Write-Host "Eski env okunamadi, varsayilanlar kullanilacak." -ForegroundColor Yellow
-}
 
-if (-not $envVars.ContainsKey("ASPNETCORE_ENVIRONMENT")) {
-    $envVars["ASPNETCORE_ENVIRONMENT"] = "Production"
-}
+    Copy-Item $ConfigPath "$ConfigPath.bak" -Force
 
-$envXml = ""
-foreach ($kv in $envVars.GetEnumerator() | Sort-Object Name) {
-    $val = [System.Security.SecurityElement]::Escape($kv.Value)
-    $envXml += "          <environmentVariable name=`"$($kv.Key)`" value=`"$val`" />`r`n"
-}
+    $envVars = @{}
+    [xml]$old = Get-Content $ConfigPath
+    foreach ($n in $old.SelectNodes("//environmentVariable")) {
+        $envVars[$n.GetAttribute("name")] = $n.GetAttribute("value")
+    }
+    if (-not $envVars["ASPNETCORE_ENVIRONMENT"]) {
+        $envVars["ASPNETCORE_ENVIRONMENT"] = "Production"
+    }
 
-$content = @"
+    $envXml = ""
+    foreach ($kv in ($envVars.GetEnumerator() | Sort-Object Name)) {
+        $envXml += "          <environmentVariable name=`"$($kv.Key)`" value=`"$($kv.Value)`" />`r`n"
+    }
+
+    $content = @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <location path="." inheritInChildApplications="false">
@@ -64,8 +55,19 @@ $envXml        </environmentVariables>
 </configuration>
 "@
 
-Set-Content -Path $configPath -Value $content -Encoding UTF8
-Write-Host "web.config yenilendi (path=* verb=*)" -ForegroundColor Green
+    Set-Content -Path $ConfigPath -Value $content -Encoding UTF8
+    Write-Host "Duzeltildi: $ConfigPath" -ForegroundColor Green
+}
+
+New-Item -ItemType Directory -Path (Split-Path $PersistPath -Parent) -Force | Out-Null
+Repair-WebConfig -ConfigPath (Join-Path $SiteRoot "web.config")
+Repair-WebConfig -ConfigPath $PersistPath
+
+$siteConfig = Join-Path $SiteRoot "web.config"
+if (Test-Path $siteConfig) {
+    Copy-Item $siteConfig $PersistPath -Force
+    Write-Host "Kalici yedek guncellendi: $PersistPath" -ForegroundColor Green
+}
 
 $pool = "geldim.ledajans.com(domain)(4.0)(pool)"
 $appcmd = "$env:windir\system32\inetsrv\appcmd.exe"
@@ -74,4 +76,4 @@ if (Test-Path $appcmd) {
     Write-Host "App pool yenilendi: $pool" -ForegroundColor Green
 }
 
-Write-Host "Tamam" -ForegroundColor Cyan
+Write-Host "Tamam — site + kalici yedek guncellendi" -ForegroundColor Cyan

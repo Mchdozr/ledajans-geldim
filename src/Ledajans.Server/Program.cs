@@ -93,6 +93,23 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("LedajansApp", policy =>
+    {
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (builder.Environment.IsDevelopment()) return true;
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+            return uri.Host.Equals("geldim.ledajans.com", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -116,6 +133,7 @@ contentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
 app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypeProvider });
 
 app.UseRouting();
+app.UseCors("LedajansApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
