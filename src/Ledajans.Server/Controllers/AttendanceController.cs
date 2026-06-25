@@ -245,6 +245,11 @@ public class AttendanceController : ControllerBase
 
         var accuracy = request.Accuracy is > 0 ? request.Accuracy.Value : 0;
 
+        if (accuracy > _settings.MaxGpsAccuracyMeters)
+        {
+            return ($"GPS hassasiyeti çok düşük (±{Math.Round(accuracy)} m). Açık alana çıkıp tekrar deneyin.", distance);
+        }
+
         if (!GeoHelper.IsWithinGeofence(distance, accuracy, geofence.RadiusMeters))
         {
             var worstCase = distance + accuracy;

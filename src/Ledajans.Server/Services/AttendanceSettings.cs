@@ -1,5 +1,7 @@
 namespace Ledajans.Server.Services;
 
+using Ledajans.Shared;
+
 public class AttendanceSettings
 {
     public const string SectionName = "Attendance";

@@ -64,8 +64,12 @@ Write-Host "Site: $siteRoot" -ForegroundColor Cyan
 
 # web.config kalici yedek (C:\ledajans\config — git pull burayi silmez)
 $persistScript = Join-Path $PSScriptRoot "plesk-persist-webconfig.ps1"
+$repairScript = Join-Path $PSScriptRoot "plesk-repair-webconfig.ps1"
 if (Test-Path $persistScript) {
     & $persistScript -SiteRoot $siteRoot
+}
+if (Test-Path $repairScript) {
+    & $repairScript -SiteRoot $siteRoot
 }
 
 $configPath = Join-Path $siteRoot "web.config"

@@ -319,13 +319,8 @@
         _checkInLocal = checkInUtc?.AddHours(3);
     }
 
-    private async Task<GeoPosition> ResolveCheckInPositionAsync()
-    {
-        if (_userLat is not null && _userLng is not null && _userAccuracy is not null)
-            return new GeoPosition(_userLat.Value, _userLng.Value, _userAccuracy.Value);
-
-        return await GeolocationService.GetCheckInPositionAsync();
-    }
+    private Task<GeoPosition> ResolveActionPositionAsync()
+        => GeolocationService.GetCheckInPositionAsync();
 
     private async Task HandleCheckIn()
     {
@@ -333,7 +328,7 @@
         _message = null;
         try
         {
-            var pos = await ResolveCheckInPositionAsync();
+            var pos = await ResolveActionPositionAsync();
             var result = await AttendanceService.CheckInAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,
@@ -345,7 +340,9 @@
             {
                 ApplyCheckedInState(result.CheckInUtc);
                 _message = null;
-                if (!result.AlreadyCheckedIn)
+                if (result.AlreadyCheckedIn)
+                    Snackbar.Add("Bugün zaten giriş yaptınız.", Severity.Info);
+                else
                     Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
                 await RefreshDistance();
             }
@@ -378,7 +375,7 @@
         _message = null;
         try
         {
-            var pos = await ResolveCheckInPositionAsync();
+            var pos = await ResolveActionPositionAsync();
             var result = await AttendanceService.CheckOutAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,

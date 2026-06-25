@@ -64,7 +64,7 @@
     private List<NonWorkingDayDto> _items = new();
     private List<UserDto> _employees = new();
     private string _type = NonWorkingDayTypes.Holiday;
-    private DateTime? _date = DateTime.Today;
+    private DateTime? _date = AppTime.TodayDate;
     private string? _userId;
     private string? _note;
     private bool _loading;
@@ -88,8 +88,8 @@
     private async Task Load()
     {
         _loading = true;
-        var from = DateOnly.FromDateTime(DateTime.Today.AddMonths(-1));
-        var to = DateOnly.FromDateTime(DateTime.Today.AddMonths(3));
+        var from = AppTime.Today.AddMonths(-1);
+        var to = AppTime.Today.AddMonths(3);
         _items = await NonWorkingDayService.GetAsync(from, to);
         _loading = false;
     }

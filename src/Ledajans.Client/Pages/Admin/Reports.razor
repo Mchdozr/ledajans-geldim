@@ -333,8 +333,8 @@
     private List<UserDto> _users = new();
     private List<UserDto> _employeeUsers = new();
     private TodaySummaryResponse _summary = new();
-    private DateTime? _from = DateTime.UtcNow.AddHours(3).Date.AddDays(-30);
-    private DateTime? _to = DateTime.UtcNow.AddHours(3).Date;
+    private DateTime? _from = AppTime.TodayDate.AddDays(-30);
+    private DateTime? _to = AppTime.TodayDate;
     private string? _userId;
     private bool _loading;
     private bool _summaryLoading;
@@ -346,7 +346,7 @@
     private bool _manualDialogOpen;
     private bool _manualSaving;
     private string? _manualUserId;
-    private DateTime? _manualDate = DateTime.Today;
+    private DateTime? _manualDate = AppTime.TodayDate;
     private string? _manualNote;
     private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
 
@@ -475,7 +475,7 @@
     private void OpenManualDialog()
     {
         _manualUserId = null;
-        _manualDate = DateTime.Today;
+        _manualDate = AppTime.TodayDate;
         _manualNote = null;
         _manualDialogOpen = true;
     }
@@ -483,7 +483,7 @@
     private void QuickManualAdd(string userId)
     {
         _manualUserId = userId;
-        _manualDate = DateTime.Today;
+        _manualDate = AppTime.TodayDate;
         _manualNote = null;
         _manualDialogOpen = true;
     }
