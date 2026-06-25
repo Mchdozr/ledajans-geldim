@@ -18,11 +18,14 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: WASM workload
-        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Restore workloads
+        run: dotnet workload restore
+
+      - name: Restore
+        run: dotnet restore Ledajans.sln
 
       - name: Publish
-        run: dotnet publish src/Ledajans.Server/Ledajans.Server.csproj -c Release -o publish
+        run: dotnet publish src/Ledajans.Server/Ledajans.Server.csproj -c Release -o publish --no-restore
 
       - name: Temizlik
         run: |
