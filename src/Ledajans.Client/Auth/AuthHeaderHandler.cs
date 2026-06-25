@@ -26,7 +26,10 @@ public class AuthHeaderHandler : DelegatingHandler
     {
         var token = await _localStorage.GetItemAsStringAsync(AuthStateProvider.TokenKey, cancellationToken);
         if (!string.IsNullOrWhiteSpace(token))
+        {
+            token = token.Trim().Trim('"');
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
 
         var response = await base.SendAsync(request, cancellationToken);
 

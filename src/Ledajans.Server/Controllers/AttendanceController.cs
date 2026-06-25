@@ -32,7 +32,6 @@ public class AttendanceController : ControllerBase
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     [HttpGet("today")]
-    [Authorize(Roles = Roles.Employee)]
     public async Task<ActionResult<TodayStatusResponse>> Today()
     {
         if (!await IsActiveEmployeeAsync())
@@ -51,7 +50,6 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("checkin")]
-    [Authorize(Roles = Roles.Employee)]
     public async Task<ActionResult<CheckInResponse>> CheckIn(CheckInRequest request)
     {
         if (!await IsActiveEmployeeAsync())
@@ -109,7 +107,6 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("checkout")]
-    [Authorize(Roles = Roles.Employee)]
     public async Task<ActionResult<CheckOutResponse>> CheckOut(CheckInRequest request)
     {
         if (!await IsActiveEmployeeAsync())

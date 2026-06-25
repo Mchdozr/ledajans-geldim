@@ -21,7 +21,7 @@ public class AttendanceService
     {
         var response = await _http.PostAsJsonAsync("api/attendance/checkin", request);
         if (!response.IsSuccessStatusCode)
-            return new CheckInResponse { Success = false, Message = "Sunucuya bağlanılamadı." };
+            return new CheckInResponse { Success = false, Message = await HttpResponseHelper.ToUserMessageAsync(response) };
         return await response.Content.ReadFromJsonAsync<CheckInResponse>()
             ?? new CheckInResponse { Success = false, Message = "Sunucu hatası." };
     }
@@ -30,7 +30,7 @@ public class AttendanceService
     {
         var response = await _http.PostAsJsonAsync("api/attendance/checkout", request);
         if (!response.IsSuccessStatusCode)
-            return new CheckOutResponse { Success = false, Message = "Sunucuya bağlanılamadı." };
+            return new CheckOutResponse { Success = false, Message = await HttpResponseHelper.ToUserMessageAsync(response) };
         return await response.Content.ReadFromJsonAsync<CheckOutResponse>()
             ?? new CheckOutResponse { Success = false, Message = "Sunucu hatası." };
     }
