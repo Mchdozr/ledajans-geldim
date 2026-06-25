@@ -78,27 +78,33 @@ if ((Test-Path $configPath) -and -not (Test-Path $backupPath)) {
 
 # IIS uygulamayi bosaltir, DLL kilitleri acilir
 $offlinePath = Join-Path $siteRoot "app_offline.htm"
-@"
-<!DOCTYPE html>
+@"<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Guncelleniyor</title></head>
 <body><p>Ledajans guncelleniyor, lutfen bekleyin...</p></body></html>
 "@ | Set-Content -Path $offlinePath -Encoding UTF8
 Write-Host "app_offline.htm olusturuldu." -ForegroundColor Green
 
-Import-Module WebAdministration -ErrorAction SilentlyContinue
-$poolName = Get-AppPoolName -SiteRoot $siteRoot
-if ($poolName) {
-    try {
-        Stop-WebAppPool -Name $poolName -ErrorAction Stop
-        Write-Host "App pool durduruldu: $poolName" -ForegroundColor Green
-    } catch {
-        Write-Host "App pool durdurulamadi (devam ediliyor): $_" -ForegroundColor Yellow
-    }
+$poolName = "geldim.ledajans.com(domain)(4.0)(pool)"
+$appCmd = "$env:windir\system32\inetsrv\appcmd.exe"
+if (Test-Path $appCmd) {
+    & $appCmd stop apppool "/apppool.name:$poolName" 2>$null
+    Write-Host "App pool durduruldu: $poolName" -ForegroundColor Green
+    Start-Sleep -Seconds 10
 } else {
-    Write-Host "App pool bulunamadi — app_offline.htm yeterli olabilir." -ForegroundColor Yellow
+    Import-Module WebAdministration -ErrorAction SilentlyContinue
+    $poolName = Get-AppPoolName -SiteRoot $siteRoot
+    if ($poolName) {
+        try {
+            Stop-WebAppPool -Name $poolName -ErrorAction Stop
+            Write-Host "App pool durduruldu: $poolName" -ForegroundColor Green
+        } catch {
+            Write-Host "App pool durdurulamadi (devam ediliyor): $_" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "App pool bulunamadi — app_offline.htm yeterli olabilir." -ForegroundColor Yellow
+    }
+    Start-Sleep -Seconds 5
 }
-
-Start-Sleep -Seconds 5
 Write-Host ""
 Write-Host "Simdi Plesk > Git > Guncellemeleri cek yapin." -ForegroundColor Cyan
 Write-Host "Basarili olunca plesk-after-pull.ps1 otomatik veya manuel calistirin." -ForegroundColor Cyan
