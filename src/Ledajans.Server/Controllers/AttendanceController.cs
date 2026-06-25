@@ -89,7 +89,7 @@ public class AttendanceController : ControllerBase
                 ? AlreadyCheckedInResponse(saved.CheckInUtc, geo.Distance)
                 : new CheckInResponse { Success = false, Message = "Kayıt çakışması oluştu. Tekrar deneyin.", DistanceMeters = geo.Distance });
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
             return Ok(new CheckInResponse
             {
