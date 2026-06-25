@@ -39,8 +39,7 @@ public class AttendanceController : ControllerBase
             return Unauthorized(new { message = "Hesabınız pasif." });
 
         var today = AppTime.Today;
-        var record = await _db.AttendanceRecords
-            .FirstOrDefaultAsync(a => a.UserId == UserId && a.LocalDate == today);
+        var record = await FindTodayRecordAsync(UserId, today);
 
         return Ok(new TodayStatusResponse
         {
@@ -63,18 +62,9 @@ public class AttendanceController : ControllerBase
             return Ok(new CheckInResponse { Success = false, Message = geo.Error, DistanceMeters = geo.Distance });
 
         var today = AppTime.Today;
-        var exists = await _db.AttendanceRecords
-            .AnyAsync(a => a.UserId == UserId && a.LocalDate == today);
-
-        if (exists)
-        {
-            return Ok(new CheckInResponse
-            {
-                Success = false,
-                Message = "Bugün zaten 'Geldim' işaretlediniz.",
-                DistanceMeters = geo.Distance
-            });
-        }
+        var existing = await FindTodayRecordAsync(UserId, today);
+        if (existing is not null)
+            return Ok(AlreadyCheckedInResponse(existing.CheckInUtc, geo.Distance));
 
         var now = DateTime.UtcNow;
         _db.AttendanceRecords.Add(new AttendanceRecord
@@ -92,9 +82,21 @@ public class AttendanceController : ControllerBase
         {
             await _db.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (IsDuplicateAttendance(ex))
         {
-            return Ok(new CheckInResponse { Success = false, Message = "Bugün zaten 'Geldim' işaretlediniz." });
+            var saved = await FindTodayRecordAsync(UserId, today);
+            return Ok(saved is not null
+                ? AlreadyCheckedInResponse(saved.CheckInUtc, geo.Distance)
+                : new CheckInResponse { Success = false, Message = "Kayıt çakışması oluştu. Tekrar deneyin.", DistanceMeters = geo.Distance });
+        }
+        catch (DbUpdateException ex)
+        {
+            return Ok(new CheckInResponse
+            {
+                Success = false,
+                Message = "Kayıt kaydedilemedi. Yöneticinize başvurun.",
+                DistanceMeters = geo.Distance
+            });
         }
 
         return Ok(new CheckInResponse
@@ -118,8 +120,7 @@ public class AttendanceController : ControllerBase
             return Ok(new CheckOutResponse { Success = false, Message = geo.Error, DistanceMeters = geo.Distance });
 
         var today = AppTime.Today;
-        var record = await _db.AttendanceRecords
-            .FirstOrDefaultAsync(a => a.UserId == UserId && a.LocalDate == today);
+        var record = await FindTodayRecordEntityAsync(UserId, today);
 
         if (record is null)
         {
@@ -286,4 +287,33 @@ public class AttendanceController : ControllerBase
 
     private AttendanceReportItem MapToReportItem(AttendanceRecord record, ApplicationUser user)
         => MapToReportItem(record, user, _settings);
+
+    private async Task<TodayRecordSnapshot?> FindTodayRecordAsync(string userId, DateOnly today)
+        => await _db.AttendanceRecords
+            .Where(a => a.UserId == userId && a.LocalDate == today)
+            .Select(a => new TodayRecordSnapshot(a.CheckInUtc, a.CheckOutUtc))
+            .FirstOrDefaultAsync();
+
+    private Task<AttendanceRecord?> FindTodayRecordEntityAsync(string userId, DateOnly today)
+        => _db.AttendanceRecords.FirstOrDefaultAsync(a => a.UserId == userId && a.LocalDate == today);
+
+    private static CheckInResponse AlreadyCheckedInResponse(DateTime checkInUtc, double distance)
+        => new()
+        {
+            Success = true,
+            AlreadyCheckedIn = true,
+            Message = "Bugün zaten 'Geldim' işaretlediniz.",
+            CheckInUtc = checkInUtc,
+            DistanceMeters = distance
+        };
+
+    private static bool IsDuplicateAttendance(DbUpdateException ex)
+    {
+        var text = ex.InnerException?.Message ?? ex.Message;
+        return text.Contains("Duplicate", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("IX_AttendanceRecords_UserId_LocalDate", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("1062", StringComparison.Ordinal);
+    }
+
+    private sealed record TodayRecordSnapshot(DateTime CheckInUtc, DateTime? CheckOutUtc);
 }

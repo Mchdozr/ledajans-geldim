@@ -27,7 +27,7 @@ jobs:
           rm -f publish/web.config
           mkdir -p publish/logs publish/scripts
           touch publish/logs/.gitkeep
-          cp scripts/plesk-deploy-action.ps1 scripts/plesk-persist-webconfig.ps1 publish/scripts/
+          cp scripts/plesk-deploy-action.ps1 scripts/plesk-persist-webconfig.ps1 scripts/check-health.ps1 publish/scripts/
           echo "${{ github.sha }}" | cut -c1-7 > publish/wwwroot/version.txt
 
       - name: deploy branch guncelle

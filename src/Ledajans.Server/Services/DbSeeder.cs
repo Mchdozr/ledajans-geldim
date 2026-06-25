@@ -16,6 +16,12 @@ public static class DbSeeder
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
         await db.Database.MigrateAsync();
+        var pending = await db.Database.GetPendingMigrationsAsync();
+        if (pending.Any())
+        {
+            throw new InvalidOperationException(
+                "Veritabani migration tamamlanamadi: " + string.Join(", ", pending));
+        }
 
         foreach (var role in new[] { Roles.Admin, Roles.Employee })
         {

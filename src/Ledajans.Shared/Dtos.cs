@@ -34,6 +34,7 @@ public record CheckInRequest
 public record CheckInResponse
 {
     public bool Success { get; set; }
+    public bool AlreadyCheckedIn { get; set; }
     public string Message { get; set; } = string.Empty;
     public DateTime? CheckInUtc { get; set; }
     public double DistanceMeters { get; set; }

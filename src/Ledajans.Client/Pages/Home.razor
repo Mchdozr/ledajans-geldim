@@ -436,6 +436,12 @@
             : Severity.Error;
     }
 
+    private void ApplyCheckedInState(DateTime? checkInUtc)
+    {
+        _hasCheckedIn = true;
+        _checkInLocal = checkInUtc?.AddHours(3);
+    }
+
     private async Task<GeoPosition> ResolveCheckInPositionAsync()
     {
         if (_userLat is not null && _userLng is not null && _userAccuracy is not null)
@@ -458,19 +464,18 @@
                 Accuracy = pos.Accuracy
             });
 
-            _message = result.Message;
-            _severity = result.Success ? Severity.Success : Severity.Warning;
-
-            if (result.Success || result.Message.Contains("zaten", StringComparison.OrdinalIgnoreCase))
+            if (result.Success)
             {
-                if (result.Success)
+                ApplyCheckedInState(result.CheckInUtc);
+                _message = null;
+                if (!result.AlreadyCheckedIn)
                     Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
-                await LoadStatus();
-                if (result.Success)
-                    await RefreshDistance();
+                await RefreshDistance();
             }
             else
             {
+                _message = result.Message;
+                _severity = Severity.Warning;
                 await RefreshDistance();
             }
         }
