@@ -210,7 +210,6 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("history")]
-    [Authorize(Roles = Roles.Employee)]
     public async Task<ActionResult<List<MyAttendanceHistoryItem>>> MyHistory([FromQuery] int limit = 100)
     {
         if (!await IsActiveEmployeeAsync())
