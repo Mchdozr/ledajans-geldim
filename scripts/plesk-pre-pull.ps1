@@ -77,11 +77,8 @@ if ((Test-Path $configPath) -and -not (Test-Path $backupPath)) {
 }
 
 # IIS uygulamayi bosaltir, DLL kilitleri acilir
-$offlinePath = Join-Path $siteRoot "app_offline.htm"
-@"<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Guncelleniyor</title></head>
-<body><p>Ledajans guncelleniyor, lutfen bekleyin...</p></body></html>
-"@ | Set-Content -Path $offlinePath -Encoding UTF8
+$html = "<!DOCTYPE html><html><head><meta charset=`"utf-8`"><title>Guncelleniyor</title></head><body><p>Ledajans guncelleniyor, lutfen bekleyin...</p></body></html>"
+Set-Content -Path $offlinePath -Value $html -Encoding UTF8
 Write-Host "app_offline.htm olusturuldu." -ForegroundColor Green
 
 $poolName = "geldim.ledajans.com(domain)(4.0)(pool)"
