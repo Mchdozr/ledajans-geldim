@@ -287,6 +287,10 @@
                                     {
                                         <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined" Class="mr-1">Geç</MudChip>
                                     }
+                                    @if (record.IsManual)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mr-1">Manuel</MudChip>
+                                    }
                                     <span class="admin-reports-distance">@record.DistanceMeters.ToString("F0") m</span>
                                 </span>
                             </div>

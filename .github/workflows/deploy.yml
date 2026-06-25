@@ -24,6 +24,7 @@ jobs:
       - name: Temizlik
         run: |
           rm -f publish/appsettings.Development.json
+          rm -f publish/web.config
           mkdir -p publish/logs
           touch publish/logs/.gitkeep
 
