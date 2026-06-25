@@ -17,7 +17,7 @@ public class GeolocationService
             mode = "preview",
             idealAccuracyMeters = 60,
             maxAccuracyMeters = 250,
-            timeoutMs = 18000
+            timeoutMs = 10000
         });
 
     /// <summary>Giriş/çıkış — daha uzun bekler, stabil ölçüm arar.</summary>

@@ -259,7 +259,7 @@
             _geofence = await GeofenceService.GetAsync();
             await LoadStatus();
             if (!_hasCheckedOut)
-                await RefreshDistance();
+                _ = LoadLocationInBackground();
         }
         catch (Exception)
         {
@@ -365,6 +365,12 @@
             _loadingStatus = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LoadLocationInBackground()
+    {
+        await Task.Delay(400);
+        await RefreshDistance();
     }
 
     private async Task RefreshDistance(bool userInitiated = false)

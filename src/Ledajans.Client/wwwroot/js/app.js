@@ -15,7 +15,8 @@ window.ledajansGeo = {
         const isPreview = options.mode === 'preview';
         const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : 40);
         const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : 100);
-        const timeoutMs = options.timeoutMs ?? (isPreview ? 18000 : 45000);
+        const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : 45000);
+        const earlyAcceptMs = isPreview ? 3500 : 8000;
         const geoOptions = {
             enableHighAccuracy: true,
             maximumAge: 0,
@@ -40,10 +41,23 @@ window.ledajansGeo = {
                 lowAccuracy: p.accuracy > idealAccuracy
             });
 
+            const earlyTimer = setTimeout(() => {
+                if (best && isPreview) finish(() => resolve(toResult(best)));
+            }, earlyAcceptMs);
+
+            const timer = setTimeout(() => {
+                if (!best) {
+                    finish(() => reject("Konum alınamadı. GPS açık ve açık alanda tekrar deneyin."));
+                    return;
+                }
+                finish(() => resolve(toResult(best)));
+            }, timeoutMs);
+
             const finish = (fn) => {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
+                clearTimeout(earlyTimer);
                 if (watchId !== null) navigator.geolocation.clearWatch(watchId);
                 fn();
             };
@@ -88,14 +102,6 @@ window.ledajansGeo = {
                     finish(() => resolve(toResult(best)));
                 }
             };
-
-            const timer = setTimeout(() => {
-                if (!best) {
-                    finish(() => reject("Konum alınamadı. GPS açık ve açık alanda tekrar deneyin."));
-                    return;
-                }
-                finish(() => resolve(toResult(best)));
-            }, timeoutMs);
 
             navigator.geolocation.getCurrentPosition(consider, () => { /* watch devam */ }, geoOptions);
 

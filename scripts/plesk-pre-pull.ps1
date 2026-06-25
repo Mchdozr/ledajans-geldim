@@ -50,6 +50,9 @@ function Get-AppPoolName {
 
 $siteRoot = $env:PLESK_HTTPDOCS
 if ([string]::IsNullOrWhiteSpace($siteRoot)) {
+    $siteRoot = "C:\Plesk Vhosts\ledajans.com\geldim.ledajans.com"
+}
+if (-not (Test-Path $siteRoot)) {
     $siteRoot = Find-SiteRoot -DomainName $Domain
 }
 if (-not $siteRoot -or -not (Test-Path $siteRoot)) {
@@ -58,6 +61,12 @@ if (-not $siteRoot -or -not (Test-Path $siteRoot)) {
 }
 
 Write-Host "Site: $siteRoot" -ForegroundColor Cyan
+
+# web.config kalici yedek (pull oncesi)
+$persistScript = Join-Path $PSScriptRoot "plesk-persist-webconfig.ps1"
+if (Test-Path $persistScript) {
+    & $persistScript -SiteRoot $siteRoot
+}
 
 # web.config yedegi (deploy branch web.config icermez)
 $configPath = Join-Path $siteRoot "web.config"
