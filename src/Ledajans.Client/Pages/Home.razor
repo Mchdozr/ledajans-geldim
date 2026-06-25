@@ -461,11 +461,13 @@
             _message = result.Message;
             _severity = result.Success ? Severity.Success : Severity.Warning;
 
-            if (result.Success)
+            if (result.Success || result.Message.Contains("zaten", StringComparison.OrdinalIgnoreCase))
             {
-                Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
+                if (result.Success)
+                    Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
                 await LoadStatus();
-                await RefreshDistance();
+                if (result.Success)
+                    await RefreshDistance();
             }
             else
             {

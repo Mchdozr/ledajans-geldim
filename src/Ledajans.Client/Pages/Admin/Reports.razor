@@ -332,9 +332,9 @@
     private List<AttendanceReportItem> _items = new();
     private List<UserDto> _users = new();
     private List<UserDto> _employeeUsers = new();
-    private TodaySummaryResponse _summary = new() { Date = DateOnly.FromDateTime(DateTime.Today) };
-    private DateTime? _from = DateTime.Today.AddDays(-30);
-    private DateTime? _to = DateTime.Today;
+    private TodaySummaryResponse _summary = new();
+    private DateTime? _from = DateTime.UtcNow.AddHours(3).Date.AddDays(-30);
+    private DateTime? _to = DateTime.UtcNow.AddHours(3).Date;
     private string? _userId;
     private bool _loading;
     private bool _summaryLoading;
@@ -359,9 +359,9 @@
             await LoadSummary();
             await Load();
         }
-        catch
+        catch (Exception ex)
         {
-            Snackbar.Add("Raporlar yüklenemedi.", Severity.Error);
+            Snackbar.Add($"Raporlar yüklenemedi: {ex.Message}", Severity.Error);
         }
     }
 
@@ -378,9 +378,10 @@
         {
             _summary = await ReportService.GetTodaySummaryAsync(_department);
         }
-        catch
+        catch (Exception ex)
         {
             _summary = new();
+            Snackbar.Add($"Günlük özet alınamadı: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -395,9 +396,10 @@
         {
             _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId, _department);
         }
-        catch
+        catch (Exception ex)
         {
             _items = new();
+            Snackbar.Add($"Kayıtlar alınamadı: {ex.Message}", Severity.Error);
         }
         finally
         {

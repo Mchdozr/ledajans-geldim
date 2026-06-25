@@ -120,7 +120,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGet("/health", () => Results.Ok(new { status = "ok", app = "Ledajans Geldim" }));
+app.MapGet("/health", async (AppDbContext db) =>
+{
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    return Results.Ok(new
+    {
+        status = "ok",
+        app = "Ledajans Geldim",
+        migrationsPending = pending.Count,
+        migrations = pending
+    });
+});
 app.MapFallbackToFile("index.html");
 
 await DbSeeder.SeedAsync(app.Services, app.Configuration);

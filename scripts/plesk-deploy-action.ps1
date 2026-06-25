@@ -1,5 +1,6 @@
-$SiteRoot = "C:\Plesk Vhosts\ledajans.com\geldim.ledajans.com"
-$PersistScript = "C:\Ledajans\scripts\plesk-persist-webconfig.ps1"
+# Site kokundeki scripts/ klasorunden calisir (deploy branch ile gelir)
+$SiteRoot = Split-Path -Parent $PSScriptRoot
+$PersistScript = Join-Path $PSScriptRoot "plesk-persist-webconfig.ps1"
 
 if (Test-Path $PersistScript) {
     & $PersistScript -SiteRoot $SiteRoot

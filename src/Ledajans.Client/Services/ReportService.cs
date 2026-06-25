@@ -14,14 +14,20 @@ public class ReportService
         var url = string.IsNullOrWhiteSpace(department)
             ? "api/reports/today-summary"
             : $"api/reports/today-summary?department={Uri.EscapeDataString(department)}";
-        return await _http.GetJsonOrDefaultAsync<TodaySummaryResponse>(url) ?? new();
+        var response = await _http.GetAsync(url);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Rapor alınamadı ({(int)response.StatusCode})");
+        return await response.Content.ReadFromJsonAsync<TodaySummaryResponse>() ?? new();
     }
 
     public async Task<List<AttendanceReportItem>> GetAsync(
         DateOnly? from, DateOnly? to, string? userId, string? department = null)
     {
         var url = $"api/reports?{BuildQuery(from, to, userId, department)}";
-        return await _http.GetJsonOrDefaultAsync<List<AttendanceReportItem>>(url) ?? new();
+        var response = await _http.GetAsync(url);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Kayıtlar alınamadı ({(int)response.StatusCode})");
+        return await response.Content.ReadFromJsonAsync<List<AttendanceReportItem>>() ?? new();
     }
 
     public string BuildExportUrl(DateOnly? from, DateOnly? to, string? userId, string? department = null)

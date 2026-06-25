@@ -11,17 +11,10 @@ public class AttendanceService
 
     public async Task<TodayStatusResponse> GetTodayAsync()
     {
-        try
-        {
-            var response = await _http.GetAsync("api/attendance/today");
-            if (!response.IsSuccessStatusCode)
-                return new TodayStatusResponse();
-            return await response.Content.ReadFromJsonAsync<TodayStatusResponse>() ?? new();
-        }
-        catch
-        {
-            return new TodayStatusResponse();
-        }
+        var response = await _http.GetAsync("api/attendance/today");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Durum alınamadı ({(int)response.StatusCode})");
+        return await response.Content.ReadFromJsonAsync<TodayStatusResponse>() ?? new();
     }
 
     public async Task<CheckInResponse> CheckInAsync(CheckInRequest request)

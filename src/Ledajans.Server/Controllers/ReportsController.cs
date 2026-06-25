@@ -208,8 +208,16 @@ public class ReportsController : ControllerBase
 
         var presentUserIds = presentRecords.Select(r => r.UserId).ToHashSet();
         var present = presentRecords
-            .Where(r => r.User is not null)
-            .Select(r => AttendanceController.MapToReportItem(r, r.User!, _settings))
+            .Select(r => AttendanceController.MapToReportItem(
+                r,
+                r.User ?? new ApplicationUser
+                {
+                    Id = r.UserId,
+                    UserName = r.UserId,
+                    FullName = "(bilinmeyen kullanıcı)",
+                    Department = Departments.Teknik
+                },
+                _settings))
             .ToList();
 
         var excused = activeEmployees.Where(e => excusedIds.Contains(e.UserId)).ToList();
@@ -311,8 +319,16 @@ public class ReportsController : ControllerBase
         var records = await query.OrderByDescending(a => a.CheckInUtc).ToListAsync();
 
         return records
-            .Where(r => r.User is not null)
-            .Select(r => AttendanceController.MapToReportItem(r, r.User!, _settings))
+            .Select(r => AttendanceController.MapToReportItem(
+                r,
+                r.User ?? new ApplicationUser
+                {
+                    Id = r.UserId,
+                    UserName = r.UserId,
+                    FullName = "(bilinmeyen kullanıcı)",
+                    Department = Departments.Teknik
+                },
+                _settings))
             .ToList();
     }
 }
