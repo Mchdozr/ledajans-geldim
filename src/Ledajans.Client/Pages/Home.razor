@@ -1,13 +1,11 @@
 ﻿@page "/"
 @attribute [Authorize]
-@implements IAsyncDisposable
 @inject AttendanceService AttendanceService
 @inject GeofenceService GeofenceService
 @inject GeolocationService GeolocationService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
-@inject IJSRuntime JS
 
 <PageTitle>Geldim - Ledajans</PageTitle>
 
@@ -17,7 +15,7 @@
 </div>
 
 <MudGrid Justify="Justify.Center">
-    <MudItem xs="12" sm="10" md="8" lg="7">
+    <MudItem xs="12" sm="10" md="7" lg="6">
         <MudPaper Class="ledajans-card ledajans-card-accent" Elevation="0">
             <div class="checkin-hero">
                 @if (_loadingStatus)
@@ -173,44 +171,6 @@
             </div>
         </MudPaper>
 
-        @if (_showLocationMap)
-        {
-            <ErrorBoundary>
-                <ChildContent>
-                    <MudPaper Elevation="0" Class="ledajans-card pa-2 mt-3 employee-location-card">
-                        <div class="employee-location-legend">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="employee-legend-office">
-                                Ofis alanı
-                            </MudChip>
-                            @if (_userLat is not null)
-                            {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                         Color="@(_withinRadius ? Color.Success : Color.Error)">
-                                    @(_withinRadius ? "Alan içindesiniz" : "Alan dışındasınız")
-                                </MudChip>
-                                @if (_userAccuracy is not null)
-                                {
-                                    <MudText Typo="Typo.caption" Class="mud-text-secondary align-self-center">
-                                        Hassasiyet: ±@Math.Round(_userAccuracy.Value) m
-                                    </MudText>
-                                }
-                            }
-                            else if (_loadingLocation)
-                            {
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Konum alınıyor...</MudText>
-                            }
-                        </div>
-                        <div id="@MapElementId" class="employee-location-map"></div>
-                    </MudPaper>
-                </ChildContent>
-                <ErrorContent>
-                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-3">
-                        Konum haritası yüklenemedi. Giriş/çıkış yine de çalışır.
-                    </MudAlert>
-                </ErrorContent>
-            </ErrorBoundary>
-        }
-
         <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-4 mud-text-secondary">
             Konum doğrulaması güvenlik için sunucu tarafında yapılır.
         </MudText>
@@ -218,8 +178,6 @@
 </MudGrid>
 
 @code {
-    private const string MapElementId = "employeeLocationMap";
-
     private bool _loadingStatus = true;
     private bool _loadingLocation;
     private bool _processing;
@@ -227,10 +185,6 @@
     private bool _hasCheckedIn;
     private bool _hasCheckedOut;
     private bool _withinRadius;
-    private bool _mapReady;
-    private bool _mapInitTried;
-    private bool _mapUnavailable;
-    private bool _disposed;
     private double? _distanceMeters;
     private double? _userLat;
     private double? _userLng;
@@ -242,8 +196,6 @@
     private string? _locationHint;
     private Severity _severity = Severity.Info;
     private Severity _distanceSeverity = Severity.Info;
-
-    private bool _showLocationMap => !_loadingStatus && !_hasCheckedOut && _geofence is not null && !_mapUnavailable;
 
     protected override async Task OnInitializedAsync()
     {
@@ -266,80 +218,6 @@
             _message = "Sayfa yüklenemedi. Sayfayı yenileyip tekrar deneyin.";
             _severity = Severity.Error;
             _loadingStatus = false;
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_disposed) return;
-
-        if (!_showLocationMap)
-        {
-            await DestroyMapAsync();
-            return;
-        }
-
-        if (_mapReady || _mapInitTried || _geofence is null || _loadingStatus)
-            return;
-
-        _mapInitTried = true;
-        try
-        {
-            await Task.Yield();
-            if (_disposed) return;
-
-            var ok = await JS.InvokeAsync<bool>("ledajansLocationMap.init",
-                MapElementId, _geofence.Latitude, _geofence.Longitude, _geofence.RadiusMeters);
-            if (!ok)
-            {
-                _mapUnavailable = true;
-                await InvokeAsync(StateHasChanged);
-                return;
-            }
-
-            _mapReady = true;
-            if (_userLat is not null && _userLng is not null)
-                await SyncMapUserAsync();
-        }
-        catch
-        {
-            _mapReady = false;
-            _mapUnavailable = true;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        _disposed = true;
-        await DestroyMapAsync();
-    }
-
-    private async Task DestroyMapAsync()
-    {
-        if (!_mapReady) return;
-        try
-        {
-            await JS.InvokeVoidAsync("ledajansLocationMap.destroy", MapElementId);
-        }
-        catch
-        {
-            // sayfa kapanırken JS interop hata verebilir
-        }
-        _mapReady = false;
-    }
-
-    private async Task SyncMapUserAsync()
-    {
-        if (!_mapReady || _userLat is null || _userLng is null) return;
-        try
-        {
-            await JS.InvokeVoidAsync("ledajansLocationMap.updateUser",
-                MapElementId, _userLat.Value, _userLng.Value, _userAccuracy ?? 0, _withinRadius);
-        }
-        catch
-        {
-            // harita senkronu başarısız olsa da uygulama çalışmaya devam etsin
         }
     }
 
@@ -392,7 +270,6 @@
             _locationHint = pos.LowAccuracy
                 ? $"GPS hassasiyeti düşük (±{Math.Round(pos.Accuracy)} m). Pencere kenarında bekleyin."
                 : null;
-            await SyncMapUserAsync();
         }
         catch (JSException ex)
         {
