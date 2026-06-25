@@ -11,8 +11,8 @@ public class GeolocationService
     public GeolocationService(IJSRuntime js) => _js = js;
 
     /// <summary>Harita ve mesafe önizlemesi — mümkün olan en iyi konumu döner.</summary>
-    public Task<GeoPosition> GetPreviewPositionAsync()
-        => _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
+    public async Task<GeoPosition> GetPreviewPositionAsync()
+        => await _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
         {
             mode = "preview",
             idealAccuracyMeters = 60,
@@ -20,9 +20,8 @@ public class GeolocationService
             timeoutMs = 10000
         });
 
-    /// <summary>Giriş/çıkış — daha uzun bekler, stabil ölçüm arar.</summary>
-    public Task<GeoPosition> GetCheckInPositionAsync()
-        => _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
+    public async Task<GeoPosition> GetCheckInPositionAsync()
+        => await _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
         {
             mode = "checkin",
             idealAccuracyMeters = 40,
