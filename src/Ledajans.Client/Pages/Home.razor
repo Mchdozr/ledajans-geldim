@@ -355,9 +355,9 @@
             _checkInLocal = status.CheckInUtc?.AddHours(3);
             _checkOutLocal = status.CheckOutUtc?.AddHours(3);
         }
-        catch
+        catch (Exception ex)
         {
-            _message = "Durum yüklenemedi. İnternet bağlantınızı kontrol edip yenileyin.";
+            _message = $"Durum yüklenemedi: {ex.Message}";
             _severity = Severity.Error;
         }
         finally

@@ -9,6 +9,11 @@ if (Test-Path $PersistScript) {
     & $PersistScript -SiteRoot $SiteRoot
 }
 
+$repairScript = Join-Path $PSScriptRoot "plesk-repair-webconfig.ps1"
+if (Test-Path $repairScript) {
+    & $repairScript -SiteRoot $SiteRoot
+}
+
 Remove-Item (Join-Path $SiteRoot "app_offline.htm") -ErrorAction SilentlyContinue
 
 if (Test-Path $AppCmd) {
