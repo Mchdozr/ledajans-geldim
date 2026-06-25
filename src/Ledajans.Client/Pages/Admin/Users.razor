@@ -75,7 +75,7 @@
                              AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                         <MudMenuItem Icon="@Icons.Material.Filled.History" IconColor="Color.Primary"
                                      OnClick="@(() => OpenHistory(context))">
-                            Giriş geçmişi
+                            Giriş - çıkış işlemleri
                         </MudMenuItem>
                         <MudMenuItem Icon="@Icons.Material.Filled.Edit" IconColor="Color.Primary"
                                      OnClick="@(() => OpenEdit(context))">
@@ -171,7 +171,7 @@
                 <span class="user-avatar user-avatar-sm">@GetInitials(_historyUser.FullName)</span>
                 <div>
                     <MudText Typo="Typo.subtitle2">@_historyUser.FullName</MudText>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@@@_historyUser.UserName</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@@@_historyUser.UserName · Giriş ve çıkış kayıtları</MudText>
                 </div>
             </div>
         }
@@ -214,16 +214,28 @@
                             </div>
                             <div class="admin-history-body">
                                 <span class="admin-history-time">
-                                    @TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")
+                                    Giriş @TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")
+                                    @if (record.CheckOutUtc is not null)
+                                    {
+                                        <span> · Çıkış @TurkishFormat.FormatTimeLocal(record.CheckOutUtc.Value, "HH:mm")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="mud-text-secondary"> · Çıkış yok</span>
+                                    }
                                 </span>
                                 <span class="admin-history-detail">
-                                    @record.DistanceMeters.ToString("F0") m
+                                    Giriş @record.DistanceMeters.ToString("F0") m
                                     @if (!string.IsNullOrWhiteSpace(record.IpAddress))
                                     {
                                         <span> · @record.IpAddress</span>
                                     }
                                 </span>
                             </div>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Color="@(record.CheckOutUtc is not null ? Color.Success : Color.Warning)">
+                                @(record.CheckOutUtc is not null ? "Tamamlandı" : "Yalnızca giriş")
+                            </MudChip>
                         </div>
                     }
                 </div>

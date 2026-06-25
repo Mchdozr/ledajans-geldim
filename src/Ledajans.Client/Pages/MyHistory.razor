@@ -4,11 +4,11 @@
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 
-<PageTitle>Giriş Geçmişim - Ledajans</PageTitle>
+<PageTitle>Giriş - Çıkış İşlemlerim - Ledajans</PageTitle>
 
 <div class="page-header">
-    <MudText Typo="Typo.h5">Giriş Geçmişim</MudText>
-    <div class="subtitle">Giriş ve çıkış kayıtlarınız</div>
+    <MudText Typo="Typo.h5">Giriş - Çıkış İşlemlerim</MudText>
+    <div class="subtitle">Ofis giriş ve çıkış kayıtlarınız</div>
 </div>
 
 <MudPaper Class="ledajans-card pa-4" Elevation="0">
@@ -23,7 +23,7 @@
         <div class="history-empty">
             <MudIcon Icon="@Icons.Material.Filled.EventBusy" Style="font-size:3rem;color:#f46f2c;opacity:0.5;" Class="mb-3" />
             <MudText Typo="Typo.body1">Henüz kayıt yok</MudText>
-            <MudText Typo="Typo.caption" Class="mt-1">İlk girişinizi "Geldim" sayfasından yapabilirsiniz.</MudText>
+            <MudText Typo="Typo.caption" Class="mt-1">İlk kaydınızı "Geldim" sayfasından yapabilirsiniz.</MudText>
         </div>
     }
     else
@@ -44,16 +44,24 @@
                         @TurkishFormat.FormatDate(item.LocalDate, "dddd, dd MMMM yyyy")
                     </MudText>
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" Class="mr-1" Style="vertical-align:-2px;" />
                         Giriş: @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
-                        @if (item.CheckOutUtc is not null)
-                        {
-                            <span> · Çıkış: @TurkishFormat.FormatTimeLocal(item.CheckOutUtc.Value)</span>
-                        }
                     </MudText>
+                    @if (item.CheckOutUtc is not null)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" Class="mr-1" Style="vertical-align:-2px;" />
+                            Çıkış: @TurkishFormat.FormatTimeLocal(item.CheckOutUtc.Value)
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">Çıkış henüz işaretlenmedi</MudText>
+                    }
                 </div>
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                          Color="@(item.CheckOutUtc is not null ? Color.Success : Color.Primary)">
-                    @(item.CheckOutUtc is not null ? "Tam" : "Giriş")
+                    @(item.CheckOutUtc is not null ? "Tamamlandı" : "Yalnızca giriş")
                 </MudChip>
             </div>
         }
