@@ -26,7 +26,7 @@ public class GeolocationService
         {
             mode = "checkin",
             idealAccuracyMeters = 40,
-            maxAccuracyMeters = 100,
+            maxAccuracyMeters = 200,
             timeoutMs = 45000
         });
 

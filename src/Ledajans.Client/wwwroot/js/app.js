@@ -50,10 +50,8 @@ window.ledajansGeo = {
 
             const onError = (err) => {
                 if (best) {
-                    if (isPreview || best.accuracy <= maxAccuracy) {
-                        finish(() => resolve(toResult(best)));
-                        return;
-                    }
+                    finish(() => resolve(toResult(best)));
+                    return;
                 }
                 let msg = "Konum alınamadı.";
                 if (err.code === 1) msg = "Konum izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.";
@@ -96,13 +94,7 @@ window.ledajansGeo = {
                     finish(() => reject("Konum alınamadı. GPS açık ve açık alanda tekrar deneyin."));
                     return;
                 }
-                if (isPreview || best.accuracy <= maxAccuracy) {
-                    finish(() => resolve(toResult(best)));
-                    return;
-                }
-                finish(() => reject(
-                    `Konum hassasiyeti yetersiz (±${Math.round(best.accuracy)} m). Pencere kenarına veya açık alana çıkıp tekrar deneyin.`
-                ));
+                finish(() => resolve(toResult(best)));
             }, timeoutMs);
 
             navigator.geolocation.getCurrentPosition(consider, () => { /* watch devam */ }, geoOptions);

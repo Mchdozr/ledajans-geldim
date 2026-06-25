@@ -238,11 +238,6 @@ public class AttendanceController : ControllerBase
 
     private async Task<(string? Error, double Distance)> ValidateGeofenceAsync(CheckInRequest request)
     {
-        if (request.Accuracy is > 0 and var acc && acc > _settings.MaxGpsAccuracyMeters)
-        {
-            return ($"Konum hassasiyeti düşük ({Math.Round(acc)} m). Açık alana çıkıp tekrar deneyin.", 0);
-        }
-
         var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
         if (geofence is null)
             return ("Aktif konum tanımlı değil. Yöneticinize başvurun.", 0);
