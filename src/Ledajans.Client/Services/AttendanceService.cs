@@ -26,6 +26,15 @@ public class AttendanceService
             ?? new CheckInResponse { Success = false, Message = "Sunucu hatası." };
     }
 
+    public async Task<CheckOutResponse> CheckOutAsync(CheckInRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/attendance/checkout", request);
+        if (!response.IsSuccessStatusCode)
+            return new CheckOutResponse { Success = false, Message = "Sunucuya bağlanılamadı." };
+        return await response.Content.ReadFromJsonAsync<CheckOutResponse>()
+            ?? new CheckOutResponse { Success = false, Message = "Sunucu hatası." };
+    }
+
     public async Task<List<MyAttendanceHistoryItem>> GetMyHistoryAsync(int limit = 100)
         => await _http.GetFromJsonAsync<List<MyAttendanceHistoryItem>>($"api/attendance/history?limit={limit}") ?? new();
 

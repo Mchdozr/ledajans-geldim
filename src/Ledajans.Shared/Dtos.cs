@@ -39,10 +39,20 @@ public record CheckInResponse
     public double DistanceMeters { get; set; }
 }
 
+public record CheckOutResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime? CheckOutUtc { get; set; }
+    public double DistanceMeters { get; set; }
+}
+
 public record TodayStatusResponse
 {
     public bool HasCheckedIn { get; set; }
     public DateTime? CheckInUtc { get; set; }
+    public bool HasCheckedOut { get; set; }
+    public DateTime? CheckOutUtc { get; set; }
 }
 
 public record GeofenceDto
@@ -118,6 +128,7 @@ public record AttendanceReportItem
     public string FullName { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public DateTime CheckInUtc { get; set; }
+    public DateTime? CheckOutUtc { get; set; }
     public DateOnly LocalDate { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
@@ -189,6 +200,7 @@ public record MyAttendanceHistoryItem
 {
     public DateOnly LocalDate { get; set; }
     public DateTime CheckInUtc { get; set; }
+    public DateTime? CheckOutUtc { get; set; }
     public double DistanceMeters { get; set; }
 }
 

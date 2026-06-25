@@ -45,7 +45,9 @@ public class AttendanceController : ControllerBase
         return Ok(new TodayStatusResponse
         {
             HasCheckedIn = record is not null,
-            CheckInUtc = record?.CheckInUtc
+            CheckInUtc = record?.CheckInUtc,
+            HasCheckedOut = record?.CheckOutUtc is not null,
+            CheckOutUtc = record?.CheckOutUtc
         });
     }
 
@@ -56,32 +58,9 @@ public class AttendanceController : ControllerBase
         if (!await IsActiveEmployeeAsync())
             return Unauthorized(new { message = "Hesabınız pasif." });
 
-        if (request.Accuracy is > 0 and var acc && acc > _settings.MaxGpsAccuracyMeters)
-        {
-            return Ok(new CheckInResponse
-            {
-                Success = false,
-                Message = $"Konum hassasiyeti düşük ({Math.Round(acc)} m). Açık alana çıkıp tekrar deneyin."
-            });
-        }
-
-        var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
-        if (geofence is null)
-            return Ok(new CheckInResponse { Success = false, Message = "Aktif konum tanımlı değil. Yöneticinize başvurun." });
-
-        var distance = GeoHelper.DistanceMeters(
-            geofence.Latitude, geofence.Longitude,
-            request.Latitude, request.Longitude);
-
-        if (distance > geofence.RadiusMeters)
-        {
-            return Ok(new CheckInResponse
-            {
-                Success = false,
-                Message = $"Konum sınırının dışındasınız. Sınıra uzaklığınız {Math.Round(distance - geofence.RadiusMeters)} m.",
-                DistanceMeters = Math.Round(distance, 1)
-            });
-        }
+        var geo = await ValidateGeofenceAsync(request);
+        if (geo.Error is not null)
+            return Ok(new CheckInResponse { Success = false, Message = geo.Error, DistanceMeters = geo.Distance });
 
         var today = AppTime.Today;
         var exists = await _db.AttendanceRecords
@@ -93,7 +72,7 @@ public class AttendanceController : ControllerBase
             {
                 Success = false,
                 Message = "Bugün zaten 'Geldim' işaretlediniz.",
-                DistanceMeters = Math.Round(distance, 1)
+                DistanceMeters = geo.Distance
             });
         }
 
@@ -105,7 +84,7 @@ public class AttendanceController : ControllerBase
             LocalDate = today,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            DistanceMeters = Math.Round(distance, 1),
+            DistanceMeters = geo.Distance,
             IpAddress = ClientIpHelper.GetClientIp(HttpContext)
         });
 
@@ -123,7 +102,60 @@ public class AttendanceController : ControllerBase
             Success = true,
             Message = "Geldiğiniz başarıyla kaydedildi.",
             CheckInUtc = now,
-            DistanceMeters = Math.Round(distance, 1)
+            DistanceMeters = geo.Distance
+        });
+    }
+
+    [HttpPost("checkout")]
+    [Authorize(Roles = Roles.Employee)]
+    public async Task<ActionResult<CheckOutResponse>> CheckOut(CheckInRequest request)
+    {
+        if (!await IsActiveEmployeeAsync())
+            return Unauthorized(new { message = "Hesabınız pasif." });
+
+        var geo = await ValidateGeofenceAsync(request);
+        if (geo.Error is not null)
+            return Ok(new CheckOutResponse { Success = false, Message = geo.Error, DistanceMeters = geo.Distance });
+
+        var today = AppTime.Today;
+        var record = await _db.AttendanceRecords
+            .FirstOrDefaultAsync(a => a.UserId == UserId && a.LocalDate == today);
+
+        if (record is null)
+        {
+            return Ok(new CheckOutResponse
+            {
+                Success = false,
+                Message = "Önce 'Geldim' işaretlemeniz gerekiyor.",
+                DistanceMeters = geo.Distance
+            });
+        }
+
+        if (record.CheckOutUtc is not null)
+        {
+            return Ok(new CheckOutResponse
+            {
+                Success = false,
+                Message = "Bugün zaten 'Çıkış Yaptım' işaretlediniz.",
+                DistanceMeters = geo.Distance
+            });
+        }
+
+        var now = DateTime.UtcNow;
+        record.CheckOutUtc = now;
+        record.CheckOutLatitude = request.Latitude;
+        record.CheckOutLongitude = request.Longitude;
+        record.CheckOutDistanceMeters = geo.Distance;
+        record.CheckOutIpAddress = ClientIpHelper.GetClientIp(HttpContext);
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new CheckOutResponse
+        {
+            Success = true,
+            Message = "Çıkışınız başarıyla kaydedildi.",
+            CheckOutUtc = now,
+            DistanceMeters = geo.Distance
         });
     }
 
@@ -196,11 +228,35 @@ public class AttendanceController : ControllerBase
             {
                 LocalDate = a.LocalDate,
                 CheckInUtc = a.CheckInUtc,
+                CheckOutUtc = a.CheckOutUtc,
                 DistanceMeters = a.DistanceMeters
             })
             .ToListAsync();
 
         return Ok(items);
+    }
+
+    private async Task<(string? Error, double Distance)> ValidateGeofenceAsync(CheckInRequest request)
+    {
+        if (request.Accuracy is > 0 and var acc && acc > _settings.MaxGpsAccuracyMeters)
+        {
+            return ($"Konum hassasiyeti düşük ({Math.Round(acc)} m). Açık alana çıkıp tekrar deneyin.", 0);
+        }
+
+        var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
+        if (geofence is null)
+            return ("Aktif konum tanımlı değil. Yöneticinize başvurun.", 0);
+
+        var distance = Math.Round(GeoHelper.DistanceMeters(
+            geofence.Latitude, geofence.Longitude,
+            request.Latitude, request.Longitude), 1);
+
+        if (distance > geofence.RadiusMeters)
+        {
+            return ($"Konum sınırının dışındasınız. Sınıra uzaklığınız {Math.Round(distance - geofence.RadiusMeters)} m.", distance);
+        }
+
+        return (null, distance);
     }
 
     private async Task<bool> IsActiveEmployeeAsync()
@@ -218,6 +274,7 @@ public class AttendanceController : ControllerBase
             FullName = user.FullName,
             Department = user.Department,
             CheckInUtc = record.CheckInUtc,
+            CheckOutUtc = record.CheckOutUtc,
             LocalDate = record.LocalDate,
             Latitude = record.Latitude,
             Longitude = record.Longitude,

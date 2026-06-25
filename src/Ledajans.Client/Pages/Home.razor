@@ -1,39 +1,99 @@
 ﻿@page "/"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @inject AttendanceService AttendanceService
 @inject GeofenceService GeofenceService
 @inject GeolocationService GeolocationService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Geldim - Ledajans</PageTitle>
 
 <div class="page-header text-center mb-2">
     <MudText Typo="Typo.h5">Geldim</MudText>
-    <div class="subtitle">Ofis alanı içindeyken girişinizi işaretleyin</div>
+    <div class="subtitle">Ofis alanı içindeyken giriş ve çıkışınızı işaretleyin</div>
 </div>
 
 <MudGrid Justify="Justify.Center">
-    <MudItem xs="12" sm="10" md="7" lg="6">
+    <MudItem xs="12" sm="10" md="8" lg="7">
         <MudPaper Class="ledajans-card ledajans-card-accent" Elevation="0">
             <div class="checkin-hero">
                 @if (_loadingStatus)
                 {
                     <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" Class="my-8" />
                 }
-                else if (_hasCheckedIn)
+                else if (_hasCheckedIn && _hasCheckedOut)
                 {
                     <div class="checkin-icon-wrap success">
                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size:3.5rem;" />
                     </div>
-                    <MudText Typo="Typo.h5" Style="font-weight:700;">Bugün geldiniz ✓</MudText>
-                    <MudText Typo="Typo.body1" Class="mud-text-secondary mt-2">
-                        @TurkishFormat.FormatDateTime(_checkInLocal)
+                    <MudText Typo="Typo.h5" Style="font-weight:700;">Bugün tamamlandı ✓</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                        Giriş: @TurkishFormat.FormatDateTime(_checkInLocal)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Çıkış: @TurkishFormat.FormatDateTime(_checkOutLocal)
                     </MudText>
                     <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Class="mt-4">
-                        Kayıt tamamlandı
+                        Gün kaydı tamam
                     </MudChip>
+                }
+                else if (_hasCheckedIn)
+                {
+                    <div class="checkin-icon-wrap success">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Color="Color.Success" Style="font-size:3.5rem;" />
+                    </div>
+                    <MudText Typo="Typo.h5" Style="font-weight:700;">Bugün geldiniz ✓</MudText>
+                    <MudText Typo="Typo.body1" Class="mud-text-secondary mt-2 mb-3">
+                        Giriş: @TurkishFormat.FormatDateTime(_checkInLocal)
+                    </MudText>
+
+                    @if (_loadingLocation)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+                    }
+                    else if (_distanceMeters is not null && _geofence is not null)
+                    {
+                        <MudAlert Severity="@_distanceSeverity" Variant="Variant.Outlined" Dense="true" Class="mb-4 text-left">
+                            <strong>@_geofence.Name</strong><br />
+                            Ofise yaklaşık <strong>@Math.Round(_distanceMeters.Value) m</strong> uzaktasınız.
+                            @if (_withinRadius)
+                            {
+                                <span> Çıkış işaretleyebilirsiniz.</span>
+                            }
+                            else
+                            {
+                                <span> Sınıra <strong>@Math.Round(_distanceMeters.Value - _geofence.RadiusMeters) m</strong> kaldı.</span>
+                            }
+                        </MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.MyLocation" OnClick="RefreshDistance"
+                               Disabled="_loadingLocation" Class="mb-3">
+                        Konumu güncelle
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Logout" Disabled="_processingCheckout"
+                               OnClick="HandleCheckOut" Class="checkin-btn">
+                        @if (_processingCheckout)
+                        {
+                            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
+                            <span>Konum sabitleniyor...</span>
+                        }
+                        else
+                        {
+                            <span>ÇIKIŞ YAPTIM</span>
+                        }
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(_message))
+                    {
+                        <MudAlert Severity="@_severity" Class="mt-5" Variant="Variant.Outlined" Dense="true">@_message</MudAlert>
+                    }
                 }
                 else
                 {
@@ -77,7 +137,7 @@
                         @if (_processing)
                         {
                             <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
-                            <span>Konum alınıyor...</span>
+                            <span>Konum sabitleniyor...</span>
                         }
                         else
                         {
@@ -93,6 +153,35 @@
             </div>
         </MudPaper>
 
+        @if (_showLocationMap)
+        {
+            <MudPaper Elevation="0" Class="ledajans-card pa-2 mt-3 employee-location-card">
+                <div class="employee-location-legend">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="employee-legend-office">
+                        Ofis alanı
+                    </MudChip>
+                    @if (_userLat is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                 Color="@(_withinRadius ? Color.Success : Color.Error)">
+                            @(_withinRadius ? "Alan içindesiniz" : "Alan dışındasınız")
+                        </MudChip>
+                        @if (_userAccuracy is not null)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary align-self-center">
+                                Hassasiyet: ±@Math.Round(_userAccuracy.Value) m
+                            </MudText>
+                        }
+                    }
+                    else if (_loadingLocation)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Konum alınıyor...</MudText>
+                    }
+                </div>
+                <div id="@MapElementId" class="employee-location-map"></div>
+            </MudPaper>
+        }
+
         <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-4 mud-text-secondary">
             Konum doğrulaması güvenlik için sunucu tarafında yapılır.
         </MudText>
@@ -100,17 +189,28 @@
 </MudGrid>
 
 @code {
+    private const string MapElementId = "employeeLocationMap";
+
     private bool _loadingStatus = true;
     private bool _loadingLocation;
     private bool _processing;
+    private bool _processingCheckout;
     private bool _hasCheckedIn;
+    private bool _hasCheckedOut;
     private bool _withinRadius;
+    private bool _mapReady;
     private double? _distanceMeters;
+    private double? _userLat;
+    private double? _userLng;
+    private double? _userAccuracy;
     private GeofenceDto? _geofence;
     private DateTime? _checkInLocal;
+    private DateTime? _checkOutLocal;
     private string? _message;
     private Severity _severity = Severity.Info;
     private Severity _distanceSeverity = Severity.Info;
+
+    private bool _showLocationMap => !_loadingStatus && !_hasCheckedOut && _geofence is not null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -121,9 +221,52 @@
             return;
         }
 
+        _geofence = await GeofenceService.GetAsync();
         await LoadStatus();
-        if (!_hasCheckedIn)
+        if (!_hasCheckedOut)
             await RefreshDistance();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_loadingStatus || _hasCheckedOut || _geofence is null)
+        {
+            if (_mapReady)
+                await DestroyMapAsync();
+            return;
+        }
+
+        if (!_mapReady && _showLocationMap)
+        {
+            await JS.InvokeVoidAsync("ledajansLocationMap.init",
+                MapElementId, _geofence.Latitude, _geofence.Longitude, _geofence.RadiusMeters);
+            _mapReady = true;
+            if (_userLat is not null && _userLng is not null)
+                await SyncMapUserAsync();
+        }
+    }
+
+    public async ValueTask DisposeAsync() => await DestroyMapAsync();
+
+    private async Task DestroyMapAsync()
+    {
+        if (!_mapReady) return;
+        try
+        {
+            await JS.InvokeVoidAsync("ledajansLocationMap.destroy", MapElementId);
+        }
+        catch
+        {
+            // sayfa kapanırken JS interop hata verebilir
+        }
+        _mapReady = false;
+    }
+
+    private async Task SyncMapUserAsync()
+    {
+        if (!_mapReady || _userLat is null || _userLng is null) return;
+        await JS.InvokeVoidAsync("ledajansLocationMap.updateUser",
+            MapElementId, _userLat.Value, _userLng.Value, _userAccuracy ?? 0, _withinRadius);
     }
 
     private async Task LoadStatus()
@@ -134,7 +277,9 @@
         {
             var status = await AttendanceService.GetTodayAsync();
             _hasCheckedIn = status.HasCheckedIn;
+            _hasCheckedOut = status.HasCheckedOut;
             _checkInLocal = status.CheckInUtc?.AddHours(3);
+            _checkOutLocal = status.CheckOutUtc?.AddHours(3);
         }
         catch
         {
@@ -161,6 +306,9 @@
             }
 
             var pos = await GeolocationService.GetCurrentPositionAsync();
+            _userLat = pos.Latitude;
+            _userLng = pos.Longitude;
+            _userAccuracy = pos.Accuracy;
             _distanceMeters = GeoHelper.DistanceMeters(
                 _geofence.Latitude, _geofence.Longitude,
                 pos.Latitude, pos.Longitude);
@@ -168,6 +316,7 @@
             _distanceSeverity = _withinRadius ? Severity.Success
                 : _distanceMeters <= _geofence.RadiusMeters * 2 ? Severity.Warning
                 : Severity.Error;
+            await SyncMapUserAsync();
         }
         catch (JSException ex)
         {
@@ -201,6 +350,7 @@
             {
                 Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
                 await LoadStatus();
+                await RefreshDistance();
             }
             else
             {
@@ -220,6 +370,49 @@
         finally
         {
             _processing = false;
+        }
+    }
+
+    private async Task HandleCheckOut()
+    {
+        _processingCheckout = true;
+        _message = null;
+        try
+        {
+            var pos = await GeolocationService.GetCurrentPositionAsync();
+            var result = await AttendanceService.CheckOutAsync(new CheckInRequest
+            {
+                Latitude = pos.Latitude,
+                Longitude = pos.Longitude,
+                Accuracy = pos.Accuracy
+            });
+
+            _message = result.Message;
+            _severity = result.Success ? Severity.Success : Severity.Warning;
+
+            if (result.Success)
+            {
+                Snackbar.Add("Çıkışınız kaydedildi.", Severity.Success);
+                await LoadStatus();
+            }
+            else
+            {
+                await RefreshDistance();
+            }
+        }
+        catch (JSException ex)
+        {
+            _message = ex.Message;
+            _severity = Severity.Error;
+        }
+        catch (Exception)
+        {
+            _message = "Beklenmeyen bir hata oluştu. Tekrar deneyin.";
+            _severity = Severity.Error;
+        }
+        finally
+        {
+            _processingCheckout = false;
         }
     }
 }

@@ -8,7 +8,7 @@
 
 <div class="page-header">
     <MudText Typo="Typo.h5">Giriş Geçmişim</MudText>
-    <div class="subtitle">Tüm "Geldim" kayıtlarınız</div>
+    <div class="subtitle">Giriş ve çıkış kayıtlarınız</div>
 </div>
 
 <MudPaper Class="ledajans-card pa-4" Elevation="0">
@@ -44,11 +44,16 @@
                         @TurkishFormat.FormatDate(item.LocalDate, "dddd, dd MMMM yyyy")
                     </MudText>
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                        Giriş saati: @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
+                        Giriş: @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
+                        @if (item.CheckOutUtc is not null)
+                        {
+                            <span> · Çıkış: @TurkishFormat.FormatTimeLocal(item.CheckOutUtc.Value)</span>
+                        }
                     </MudText>
                 </div>
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
-                    @TurkishFormat.FormatTimeLocal(item.CheckInUtc)
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Color="@(item.CheckOutUtc is not null ? Color.Success : Color.Primary)">
+                    @(item.CheckOutUtc is not null ? "Tam" : "Giriş")
                 </MudChip>
             </div>
         }

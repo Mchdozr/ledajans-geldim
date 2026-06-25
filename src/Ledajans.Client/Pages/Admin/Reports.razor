@@ -89,7 +89,8 @@
                     <thead>
                         <tr>
                             <th>Ad Soyad</th>
-                            <th>Saat (TR)</th>
+                            <th>Giriş (TR)</th>
+                            <th>Çıkış (TR)</th>
                             <th>Durum</th>
                             <th></th>
                         </tr>
@@ -100,6 +101,7 @@
                             <tr>
                                 <td>@r.FullName</td>
                                 <td>@TurkishFormat.FormatTimeLocal(r.CheckInUtc)</td>
+                                <td>@(r.CheckOutUtc is not null ? TurkishFormat.FormatTimeLocal(r.CheckOutUtc.Value) : "—")</td>
                                 <td>
                                     @if (r.IsLate)
                                     {
@@ -219,6 +221,7 @@
                 <MudTh>Tarih</MudTh>
                 <MudTh>Ad Soyad</MudTh>
                 <MudTh>Giriş (TR)</MudTh>
+                <MudTh>Çıkış (TR)</MudTh>
                 <MudTh>Durum</MudTh>
                 <MudTh>Uzaklık (m)</MudTh>
                 <MudTh></MudTh>
@@ -227,6 +230,7 @@
                 <MudTd>@TurkishFormat.FormatDate(context.LocalDate)</MudTd>
                 <MudTd>@context.FullName</MudTd>
                 <MudTd>@TurkishFormat.FormatTimeLocal(context.CheckInUtc)</MudTd>
+                <MudTd>@(context.CheckOutUtc is not null ? TurkishFormat.FormatTimeLocal(context.CheckOutUtc.Value) : "—")</MudTd>
                 <MudTd>
                     @if (context.IsLate)
                     {
@@ -281,7 +285,7 @@
                             </div>
                             <div class="admin-history-body admin-reports-body">
                                 <span class="admin-reports-name">@record.FullName</span>
-                                <span class="admin-reports-time">@TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")</span>
+                                <span class="admin-reports-time">@TurkishFormat.FormatTimeLocal(record.CheckInUtc, "HH:mm")@(record.CheckOutUtc is not null ? $" – {TurkishFormat.FormatTimeLocal(record.CheckOutUtc.Value, "HH:mm")}" : "")</span>
                                 <span class="admin-reports-meta-line">
                                     @if (record.IsLate)
                                     {

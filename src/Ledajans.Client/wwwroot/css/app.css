@@ -210,6 +210,37 @@ html, body {
     box-shadow: 0 6px 20px rgba(244, 111, 44, 0.35) !important;
 }
 
+.employee-location-card {
+    overflow: hidden;
+}
+
+.employee-location-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.25rem 0.625rem;
+}
+
+.employee-legend-office {
+    border-color: var(--ledajans-orange) !important;
+    color: var(--ledajans-orange-dark) !important;
+    background: rgba(244, 111, 44, 0.08) !important;
+}
+
+.employee-location-map {
+    height: 280px;
+    width: 100%;
+    border-radius: 8px;
+    z-index: 0;
+}
+
+@media (min-width: 600px) {
+    .employee-location-map {
+        height: 320px;
+    }
+}
+
 /* History list */
 .history-item {
     display: flex;

@@ -41,16 +41,20 @@ public class ReportsController : ControllerBase
     {
         var items = await QueryAsync(from, to, userId, department);
         var sb = new StringBuilder();
-        sb.AppendLine("Tarih;Departman;Kullanici;AdSoyad;GirisSaati(TR);GecKaldi;Manuel;Uzaklik(m);Not");
+        sb.AppendLine("Tarih;Departman;Kullanici;AdSoyad;GirisSaati(TR);CikisSaati(TR);GecKaldi;Manuel;Uzaklik(m);Not");
         foreach (var i in items)
         {
             var localTime = AppTime.ToTurkey(i.CheckInUtc);
+            var checkOutTime = i.CheckOutUtc is not null
+                ? AppTime.ToTurkey(i.CheckOutUtc.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)
+                : "";
             sb.AppendLine(string.Join(';',
                 i.LocalDate.ToString("yyyy-MM-dd"),
                 Csv(i.Department),
                 i.UserName,
                 i.FullName,
                 localTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+                checkOutTime,
                 i.IsLate ? "Evet" : "Hayir",
                 i.IsManual ? "Evet" : "Hayir",
                 i.DistanceMeters.ToString(CultureInfo.InvariantCulture),

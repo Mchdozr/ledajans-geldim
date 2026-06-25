@@ -111,6 +111,21 @@ namespace Ledajans.Server.Migrations
                     b.Property<DateTime>("CheckInUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<double?>("CheckOutDistanceMeters")
+                        .HasColumnType("double");
+
+                    b.Property<string>("CheckOutIpAddress")
+                        .HasColumnType("longtext");
+
+                    b.Property<double?>("CheckOutLatitude")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("CheckOutLongitude")
+                        .HasColumnType("double");
+
+                    b.Property<DateTime?>("CheckOutUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<double>("DistanceMeters")
                         .HasColumnType("double");
 
