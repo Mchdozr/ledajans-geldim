@@ -54,7 +54,7 @@ git push (main) → GitHub Actions derler → deploy branch → Plesk Git çeker
    - Depo: `https://github.com/Mchdozr/ledajans-geldim.git`
    - **Dal:** `deploy` (main değil!)
    - **Dağıtım yolu:** boş bırak veya `/` (doğrudan httpdocs)
-   - Ek deploy eylemi: **gerekmez**
+   - Ek deploy eylemi: `powershell.exe -ExecutionPolicy Bypass -File scripts\plesk-after-pull.ps1`
 
 3. **web.config** — Plesk Dosya Yöneticisi → `httpdocs\web.config` (bir kez oluştur):
    - Şablon: `scripts\plesk-web.config` (MySQL, Jwt, admin şifresi doldur)
@@ -68,6 +68,17 @@ git push (main) → GitHub Actions derler → deploy branch → Plesk Git çeker
 ```bash
 git add . && git commit -m "..." && git push
 ```
+
+**DLL kilidi hatası** (`unable to unlink Ledajans.Server.dll`): IIS dosyayı kilitliyor. Pull **öncesi**:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\plesk-pre-pull.ps1
+```
+
+Sonra Plesk Git → **Güncellemeleri çek**. Başarılı olunca `plesk-after-pull.ps1` çalışır (ek deploy eylemi veya manuel).
+
+Doğrulama: `https://geldim.ledajans.com/version.txt`
+
 Plesk Git → **Güncellemeleri çek** (veya otomatik deploy).
 
 Test: `https://geldim.ledajans.com/health`
