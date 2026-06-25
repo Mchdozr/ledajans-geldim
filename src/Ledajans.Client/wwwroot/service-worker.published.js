@@ -23,7 +23,15 @@ async function onInstall(event) {
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
         .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
         .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
-    await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+
+    const cache = await caches.open(cacheName);
+    for (const request of assetsRequests) {
+        try {
+            await cache.add(request);
+        } catch (e) {
+            console.warn('Service worker: asset skipped', request.url, e);
+        }
+    }
     self.skipWaiting();
 }
 
