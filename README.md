@@ -39,9 +39,43 @@ dotnet run --project src/Ledajans.Server
 
 > Üretimde `Jwt:Key` ve admin şifresini ortam değişkenleri veya Plesk `web.config` ile ayarlayın. Geliştirme ayarları `appsettings.Development.json` içindedir (git'e dahil, yalnızca local).
 
-## GitHub + Plesk (önerilen — FTP/ZIP yok)
+## Canlıya Alma (standart — her deploy)
 
-### Akış
+**Plesk Git pull kullanılmayacak.** Tek komut yöntemi:
+
+```
+git push (main) → GitHub Actions (deploy branch) → canliya-al.ps1 → canlı
+```
+
+### Adımlar
+
+1. **Push** — `main` branch'e commit + push
+2. **Bekle** — GitHub Actions bitene kadar (~2 dk): [Actions](https://github.com/Mchdozr/ledajans-geldim/actions)
+3. **Sunucu** — Yönetici PowerShell:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File "C:\Ledajans\canliya-al.ps1"
+```
+
+4. **Tarayıcı** — Ctrl+Shift+R
+
+### İlk kez (script yoksa)
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Mchdozr/ledajans-geldim/main/scripts/canliya-al.ps1" -OutFile "C:\Ledajans\canliya-al.ps1"
+```
+
+Detay: [docs/CANLIYA-AL.md](docs/CANLIYA-AL.md)
+
+Doğrulama: `https://geldim.ledajans.com/version.txt` ve `/health`
+
+---
+
+## GitHub + Plesk (eski — yedek)
+
+> Güncel deploy için yukarıdaki **canliya-al.ps1** yöntemini kullanın.
+
+### Akış (yedek)
 ```
 git push (main) → GitHub Actions derler → deploy branch → Plesk Git çeker → canlı
 ```

@@ -1,6 +1,12 @@
-# Tek komut canli deploy — GitHub deploy branch zip (Plesk Git pull gerekmez)
-# Kullanim (Yonetici PowerShell):
-#   powershell.exe -ExecutionPolicy Bypass -File "C:\Ledajans\canliya-al.ps1"
+# Tek komut canli deploy — STANDART YONTEM (her deploy bu script ile)
+# Detay: docs/CANLIYA-AL.md
+#
+# 1) main'e push et, GitHub Actions bitsin
+# 2) Sunucuda (Yonetici PowerShell):
+#    powershell.exe -ExecutionPolicy Bypass -File "C:\Ledajans\canliya-al.ps1"
+#
+# Ilk kurulum (script yoksa):
+#   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Mchdozr/ledajans-geldim/main/scripts/canliya-al.ps1" -OutFile "C:\Ledajans\canliya-al.ps1"
 
 $ErrorActionPreference = "Stop"
 
