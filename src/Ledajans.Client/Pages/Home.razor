@@ -53,25 +53,35 @@
                     @if (_loadingLocation)
                     {
                         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-3">Konum alınıyor...</MudText>
                     }
                     else if (_distanceMeters is not null && _geofence is not null)
                     {
                         <MudAlert Severity="@_distanceSeverity" Variant="Variant.Outlined" Dense="true" Class="mb-4 text-left">
                             <strong>@_geofence.Name</strong><br />
                             Ofise yaklaşık <strong>@Math.Round(_distanceMeters.Value) m</strong> uzaktasınız.
+                            @if (_userAccuracy is not null)
+                            {
+                                <span> (hassasiyet ±@Math.Round(_userAccuracy.Value) m)</span>
+                            }
                             @if (_withinRadius)
                             {
                                 <span> Çıkış işaretleyebilirsiniz.</span>
                             }
                             else
                             {
-                                <span> Sınıra <strong>@Math.Round(_distanceMeters.Value - _geofence.RadiusMeters) m</strong> kaldı.</span>
+                                <span> Alan dışında görünüyorsunuz.</span>
                             }
                         </MudAlert>
                     }
 
+                    @if (!string.IsNullOrEmpty(_locationHint))
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-3">@_locationHint</MudText>
+                    }
+
                     <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.MyLocation" OnClick="RefreshDistance"
+                               StartIcon="@Icons.Material.Filled.MyLocation" OnClick="() => RefreshDistance(true)"
                                Disabled="_loadingLocation" Class="mb-3">
                         Konumu güncelle
                     </MudButton>
@@ -82,7 +92,7 @@
                         @if (_processingCheckout)
                         {
                             <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
-                            <span>Konum sabitleniyor...</span>
+                            <span>GPS sabitleniyor...</span>
                         }
                         else
                         {
@@ -108,25 +118,35 @@
                     @if (_loadingLocation)
                     {
                         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-3">Konum alınıyor...</MudText>
                     }
                     else if (_distanceMeters is not null && _geofence is not null)
                     {
                         <MudAlert Severity="@_distanceSeverity" Variant="Variant.Outlined" Dense="true" Class="mb-4 text-left">
                             <strong>@_geofence.Name</strong><br />
                             Ofise yaklaşık <strong>@Math.Round(_distanceMeters.Value) m</strong> uzaktasınız.
+                            @if (_userAccuracy is not null)
+                            {
+                                <span> (hassasiyet ±@Math.Round(_userAccuracy.Value) m)</span>
+                            }
                             @if (_withinRadius)
                             {
                                 <span> Giriş yapabilirsiniz.</span>
                             }
                             else
                             {
-                                <span> Sınıra <strong>@Math.Round(_distanceMeters.Value - _geofence.RadiusMeters) m</strong> kaldı.</span>
+                                <span> Alan dışında görünüyorsunuz.</span>
                             }
                         </MudAlert>
                     }
 
+                    @if (!string.IsNullOrEmpty(_locationHint))
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-3">@_locationHint</MudText>
+                    }
+
                     <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.MyLocation" OnClick="RefreshDistance"
+                               StartIcon="@Icons.Material.Filled.MyLocation" OnClick="() => RefreshDistance(true)"
                                Disabled="_loadingLocation" Class="mb-3">
                         Konumu güncelle
                     </MudButton>
@@ -137,7 +157,7 @@
                         @if (_processing)
                         {
                             <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
-                            <span>Konum sabitleniyor...</span>
+                            <span>GPS sabitleniyor...</span>
                         }
                         else
                         {
@@ -219,6 +239,7 @@
     private DateTime? _checkInLocal;
     private DateTime? _checkOutLocal;
     private string? _message;
+    private string? _locationHint;
     private Severity _severity = Severity.Info;
     private Severity _distanceSeverity = Severity.Info;
 
@@ -346,9 +367,10 @@
         }
     }
 
-    private async Task RefreshDistance()
+    private async Task RefreshDistance(bool userInitiated = false)
     {
         _loadingLocation = true;
+        if (userInitiated) _message = null;
         try
         {
             _geofence ??= await GeofenceService.GetAsync();
@@ -359,28 +381,30 @@
                 return;
             }
 
-            var pos = await GeolocationService.GetCurrentPositionAsync();
-            _userLat = pos.Latitude;
-            _userLng = pos.Longitude;
-            _userAccuracy = pos.Accuracy;
-            _distanceMeters = GeoHelper.DistanceMeters(
-                _geofence.Latitude, _geofence.Longitude,
-                pos.Latitude, pos.Longitude);
-            _withinRadius = _distanceMeters <= _geofence.RadiusMeters;
-            _distanceSeverity = _withinRadius ? Severity.Success
-                : _distanceMeters <= _geofence.RadiusMeters * 2 ? Severity.Warning
-                : Severity.Error;
+            var pos = await GeolocationService.GetPreviewPositionAsync();
+            ApplyPosition(pos);
+            _locationHint = pos.LowAccuracy
+                ? $"GPS hassasiyeti düşük (±{Math.Round(pos.Accuracy)} m). Pencere kenarında bekleyin."
+                : null;
             await SyncMapUserAsync();
         }
         catch (JSException ex)
         {
-            _message = ex.Message;
-            _severity = Severity.Warning;
+            if (userInitiated)
+            {
+                _message = ex.Message;
+                _severity = Severity.Warning;
+            }
+            else
+                _locationHint = "Konum önizlemesi şu an alınamadı. GELDİM ile tekrar deneyebilirsiniz.";
         }
         catch (Exception)
         {
-            _message = "Konum bilgisi alınamadı. Tekrar deneyin.";
-            _severity = Severity.Warning;
+            if (userInitiated)
+            {
+                _message = "Konum bilgisi alınamadı. Tekrar deneyin.";
+                _severity = Severity.Warning;
+            }
         }
         finally
         {
@@ -389,13 +413,30 @@
         }
     }
 
+    private void ApplyPosition(GeoPosition pos)
+    {
+        if (_geofence is null) return;
+
+        _userLat = pos.Latitude;
+        _userLng = pos.Longitude;
+        _userAccuracy = pos.Accuracy;
+        _distanceMeters = GeoHelper.DistanceMeters(
+            _geofence.Latitude, _geofence.Longitude,
+            pos.Latitude, pos.Longitude);
+        var worstCase = _distanceMeters.Value + pos.Accuracy;
+        _withinRadius = worstCase <= _geofence.RadiusMeters;
+        _distanceSeverity = _withinRadius ? Severity.Success
+            : worstCase <= _geofence.RadiusMeters * 1.5 ? Severity.Warning
+            : Severity.Error;
+    }
+
     private async Task HandleCheckIn()
     {
         _processing = true;
         _message = null;
         try
         {
-            var pos = await GeolocationService.GetCurrentPositionAsync();
+            var pos = await GeolocationService.GetCheckInPositionAsync();
             var result = await AttendanceService.CheckInAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,
@@ -439,7 +480,7 @@
         _message = null;
         try
         {
-            var pos = await GeolocationService.GetCurrentPositionAsync();
+            var pos = await GeolocationService.GetCheckInPositionAsync();
             var result = await AttendanceService.CheckOutAsync(new CheckInRequest
             {
                 Latitude = pos.Latitude,

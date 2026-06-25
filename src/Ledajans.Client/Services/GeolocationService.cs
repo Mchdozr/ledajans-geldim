@@ -2,17 +2,35 @@ using Microsoft.JSInterop;
 
 namespace Ledajans.Client.Services;
 
-public record GeoPosition(double Latitude, double Longitude, double Accuracy);
+public record GeoPosition(double Latitude, double Longitude, double Accuracy, bool LowAccuracy = false);
 
 public class GeolocationService
 {
-    private const double MaxAccuracyMeters = 30;
     private readonly IJSRuntime _js;
 
     public GeolocationService(IJSRuntime js) => _js = js;
 
-    public async Task<GeoPosition> GetCurrentPositionAsync()
-        => await _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", MaxAccuracyMeters);
+    /// <summary>Harita ve mesafe önizlemesi — mümkün olan en iyi konumu döner.</summary>
+    public Task<GeoPosition> GetPreviewPositionAsync()
+        => _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
+        {
+            mode = "preview",
+            idealAccuracyMeters = 60,
+            maxAccuracyMeters = 250,
+            timeoutMs = 18000
+        });
+
+    /// <summary>Giriş/çıkış — daha uzun bekler, stabil ölçüm arar.</summary>
+    public Task<GeoPosition> GetCheckInPositionAsync()
+        => _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
+        {
+            mode = "checkin",
+            idealAccuracyMeters = 40,
+            maxAccuracyMeters = 100,
+            timeoutMs = 45000
+        });
+
+    public Task<GeoPosition> GetCurrentPositionAsync() => GetPreviewPositionAsync();
 
     public async Task DownloadAsync(string fileName, string contentType, byte[] data)
     {

@@ -1,7 +1,26 @@
 window.ledajansGeo = {
-    getCurrentPosition: function (maxAccuracyMeters) {
-        maxAccuracyMeters = maxAccuracyMeters || 30;
-        const waitMs = 25000;
+    /**
+     * @param {object} options
+     * @param {string} options.mode - 'preview' | 'checkin'
+     * @param {number} options.idealAccuracyMeters
+     * @param {number} options.maxAccuracyMeters
+     * @param {number} options.timeoutMs
+     */
+    getCurrentPosition: function (options) {
+        if (typeof options === 'number') {
+            options = { maxAccuracyMeters: options };
+        }
+        options = options || {};
+
+        const isPreview = options.mode === 'preview';
+        const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : 40);
+        const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : 100);
+        const timeoutMs = options.timeoutMs ?? (isPreview ? 18000 : 45000);
+        const geoOptions = {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: Math.min(timeoutMs, 20000)
+        };
 
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
@@ -12,6 +31,14 @@ window.ledajansGeo = {
             let best = null;
             let watchId = null;
             let settled = false;
+            const readings = [];
+
+            const toResult = (p) => ({
+                latitude: p.latitude,
+                longitude: p.longitude,
+                accuracy: p.accuracy,
+                lowAccuracy: p.accuracy > idealAccuracy
+            });
 
             const finish = (fn) => {
                 if (settled) return;
@@ -22,39 +49,65 @@ window.ledajansGeo = {
             };
 
             const onError = (err) => {
+                if (best) {
+                    if (isPreview || best.accuracy <= maxAccuracy) {
+                        finish(() => resolve(toResult(best)));
+                        return;
+                    }
+                }
                 let msg = "Konum alınamadı.";
                 if (err.code === 1) msg = "Konum izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.";
                 else if (err.code === 2) msg = "Konum bilgisi şu an kullanılamıyor. GPS açık ve açık alanda olun.";
-                else if (err.code === 3) msg = "Konum isteği zaman aşımına uğradı. Tekrar deneyin.";
+                else if (err.code === 3 && best && best.accuracy <= maxAccuracy) {
+                    finish(() => resolve(toResult(best)));
+                    return;
+                } else if (err.code === 3) {
+                    msg = "Konum isteği zaman aşımına uğradı. Tekrar deneyin.";
+                }
                 finish(() => reject(msg));
             };
 
-            const tryResolve = (pos) => {
+            const isStable = () => {
+                if (readings.length < 2) return false;
+                const recent = readings.slice(-3);
+                const accSpread = Math.max(...recent.map(r => r.accuracy)) - Math.min(...recent.map(r => r.accuracy));
+                const last = recent[recent.length - 1];
+                return last.accuracy <= idealAccuracy && accSpread <= 20;
+            };
+
+            const consider = (pos) => {
                 const candidate = {
                     latitude: pos.coords.latitude,
                     longitude: pos.coords.longitude,
                     accuracy: pos.coords.accuracy
                 };
-                if (!best || candidate.accuracy < best.accuracy)
-                    best = candidate;
-                if (candidate.accuracy <= maxAccuracyMeters)
-                    finish(() => resolve(candidate));
+                if (!Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude)) return;
+
+                readings.push(candidate);
+                if (!best || candidate.accuracy < best.accuracy) best = candidate;
+
+                if (candidate.accuracy <= idealAccuracy && isStable()) {
+                    finish(() => resolve(toResult(best)));
+                }
             };
 
             const timer = setTimeout(() => {
-                if (best && best.accuracy <= maxAccuracyMeters)
-                    finish(() => resolve(best));
-                else if (best)
-                    finish(() => reject(`Konum hassasiyeti düşük (${Math.round(best.accuracy)} m). Açık alana çıkıp tekrar deneyin.`));
-                else
+                if (!best) {
                     finish(() => reject("Konum alınamadı. GPS açık ve açık alanda tekrar deneyin."));
-            }, waitMs);
+                    return;
+                }
+                if (isPreview || best.accuracy <= maxAccuracy) {
+                    finish(() => resolve(toResult(best)));
+                    return;
+                }
+                finish(() => reject(
+                    `Konum hassasiyeti yetersiz (±${Math.round(best.accuracy)} m). Pencere kenarına veya açık alana çıkıp tekrar deneyin.`
+                ));
+            }, timeoutMs);
 
-            watchId = navigator.geolocation.watchPosition(tryResolve, onError, {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: waitMs
-            });
+            navigator.geolocation.getCurrentPosition(consider, () => { /* watch devam */ }, geoOptions);
+
+            watchId = navigator.geolocation.watchPosition(consider, onError, geoOptions);
         });
     }
 };

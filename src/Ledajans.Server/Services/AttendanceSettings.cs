@@ -6,7 +6,7 @@ public class AttendanceSettings
 
     public int LateCheckInHour { get; set; } = 9;
     public int LateCheckInMinute { get; set; } = 15;
-    public double MaxGpsAccuracyMeters { get; set; } = 30;
+    public double MaxGpsAccuracyMeters { get; set; } = 100;
 
     public TimeOnly LateThreshold => new(LateCheckInHour, LateCheckInMinute);
 

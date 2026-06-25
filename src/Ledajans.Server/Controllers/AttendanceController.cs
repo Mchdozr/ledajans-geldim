@@ -251,9 +251,13 @@ public class AttendanceController : ControllerBase
             geofence.Latitude, geofence.Longitude,
             request.Latitude, request.Longitude), 1);
 
-        if (distance > geofence.RadiusMeters)
+        var accuracy = request.Accuracy is > 0 ? request.Accuracy.Value : 0;
+        var worstCaseDistance = distance + accuracy;
+
+        if (worstCaseDistance > geofence.RadiusMeters)
         {
-            return ($"Konum sınırının dışındasınız. Sınıra uzaklığınız {Math.Round(distance - geofence.RadiusMeters)} m.", distance);
+            var outsideBy = Math.Round(worstCaseDistance - geofence.RadiusMeters);
+            return ($"Konum sınırının dışında görünüyorsunuz (en iyi ihtimalle sınıra ~{outsideBy} m). Açık alana çıkıp tekrar deneyin.", distance);
         }
 
         return (null, distance);
