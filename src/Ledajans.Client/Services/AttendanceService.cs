@@ -11,10 +11,17 @@ public class AttendanceService
 
     public async Task<TodayStatusResponse> GetTodayAsync()
     {
-        var response = await _http.GetAsync("api/attendance/today");
-        if (!response.IsSuccessStatusCode)
+        try
+        {
+            var response = await _http.GetAsync("api/attendance/today");
+            if (!response.IsSuccessStatusCode)
+                return new TodayStatusResponse();
+            return await response.Content.ReadFromJsonAsync<TodayStatusResponse>() ?? new();
+        }
+        catch
+        {
             return new TodayStatusResponse();
-        return await response.Content.ReadFromJsonAsync<TodayStatusResponse>() ?? new();
+        }
     }
 
     public async Task<CheckInResponse> CheckInAsync(CheckInRequest request)
@@ -36,7 +43,7 @@ public class AttendanceService
     }
 
     public async Task<List<MyAttendanceHistoryItem>> GetMyHistoryAsync(int limit = 100)
-        => await _http.GetFromJsonAsync<List<MyAttendanceHistoryItem>>($"api/attendance/history?limit={limit}") ?? new();
+        => await _http.GetJsonOrDefaultAsync<List<MyAttendanceHistoryItem>>($"api/attendance/history?limit={limit}") ?? new();
 
     public async Task<AttendanceReportItem?> ManualCheckInAsync(ManualCheckInRequest request)
     {

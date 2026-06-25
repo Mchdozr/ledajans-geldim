@@ -72,12 +72,18 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender || _mapReady) return;
+
+        try
         {
             _ref = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("ledajansMap.init", "geofenceMap",
                 _model.Latitude, _model.Longitude, _model.RadiusMeters, _ref);
             _mapReady = true;
+        }
+        catch
+        {
+            _mapReady = false;
         }
     }
 
@@ -103,6 +109,10 @@
         {
             await JS.InvokeVoidAsync("ledajansMap.setView", _model.Latitude, _model.Longitude, _model.RadiusMeters);
         }
+        catch
+        {
+            // harita senkronu başarısız
+        }
         finally
         {
             _syncingMap = false;
@@ -111,8 +121,15 @@
 
     private async Task SyncRadius()
     {
-        if (_mapReady)
+        if (!_mapReady) return;
+        try
+        {
             await JS.InvokeVoidAsync("ledajansMap.updateRadius", _model.RadiusMeters);
+        }
+        catch
+        {
+            // harita senkronu başarısız
+        }
     }
 
     private async Task UseMyLocation()

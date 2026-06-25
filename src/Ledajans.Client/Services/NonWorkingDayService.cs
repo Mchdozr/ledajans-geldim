@@ -15,7 +15,7 @@ public class NonWorkingDayService
         if (from is not null) parts.Add($"from={from:yyyy-MM-dd}");
         if (to is not null) parts.Add($"to={to:yyyy-MM-dd}");
         var qs = parts.Count > 0 ? "?" + string.Join("&", parts) : "";
-        return await _http.GetFromJsonAsync<List<NonWorkingDayDto>>($"api/nonworkingdays{qs}") ?? new();
+        return await _http.GetJsonOrDefaultAsync<List<NonWorkingDayDto>>($"api/nonworkingdays{qs}") ?? new();
     }
 
     public async Task<bool> CreateAsync(CreateNonWorkingDayRequest request)

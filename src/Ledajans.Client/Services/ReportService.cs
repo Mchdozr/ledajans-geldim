@@ -14,14 +14,14 @@ public class ReportService
         var url = string.IsNullOrWhiteSpace(department)
             ? "api/reports/today-summary"
             : $"api/reports/today-summary?department={Uri.EscapeDataString(department)}";
-        return await _http.GetFromJsonAsync<TodaySummaryResponse>(url) ?? new();
+        return await _http.GetJsonOrDefaultAsync<TodaySummaryResponse>(url) ?? new();
     }
 
     public async Task<List<AttendanceReportItem>> GetAsync(
         DateOnly? from, DateOnly? to, string? userId, string? department = null)
     {
         var url = $"api/reports?{BuildQuery(from, to, userId, department)}";
-        return await _http.GetFromJsonAsync<List<AttendanceReportItem>>(url) ?? new();
+        return await _http.GetJsonOrDefaultAsync<List<AttendanceReportItem>>(url) ?? new();
     }
 
     public string BuildExportUrl(DateOnly? from, DateOnly? to, string? userId, string? department = null)

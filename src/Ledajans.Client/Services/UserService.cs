@@ -10,7 +10,7 @@ public class UserService
     public UserService(HttpClient http) => _http = http;
 
     public async Task<List<UserDto>> GetAllAsync()
-        => await _http.GetFromJsonAsync<List<UserDto>>("api/users") ?? new();
+        => await _http.GetJsonOrDefaultAsync<List<UserDto>>("api/users") ?? new();
 
     public async Task<(bool ok, string? error)> CreateAsync(CreateUserRequest request)
     {

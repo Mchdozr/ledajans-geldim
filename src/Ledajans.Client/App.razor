@@ -1,36 +1,54 @@
-﻿<MudThemeProvider Theme="@_theme" IsDarkMode="false" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
-<CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(App).Assembly">
-        <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
-                <NotAuthorized>
-                    <RedirectToLogin />
-                </NotAuthorized>
-                <Authorizing>
-                    <div class="app-loading" style="position:relative; min-height:200px;">
-                        <div class="app-loading-spinner"></div>
-                    </div>
-                </Authorizing>
-            </AuthorizeRouteView>
-            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-        </Found>
-        <NotFound>
-            <PageTitle>Bulunamadı</PageTitle>
-            <LayoutView Layout="@typeof(MainLayout)">
-                <MudPaper Class="ledajans-card pa-6 text-center">
-                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="font-size:3rem;color:#f46f2c;" Class="mb-3" />
-                    <MudText Typo="Typo.h6">Aradığınız sayfa bulunamadı.</MudText>
-                </MudPaper>
-            </LayoutView>
-        </NotFound>
-    </Router>
-</CascadingAuthenticationState>
-
-@code {
-    private readonly MudTheme _theme = LedajansTheme.Create();
-}
+﻿<MudThemeProvider Theme="@_theme" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@inject NavigationManager NavigationManager
+
+<CascadingAuthenticationState>
+    <ErrorBoundary>
+        <ChildContent>
+            <Router AppAssembly="@typeof(App).Assembly">
+                <Found Context="routeData">
+                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                        <NotAuthorized>
+                            <RedirectToLogin />
+                        </NotAuthorized>
+                        <Authorizing>
+                            <div class="app-loading" style="position:relative; min-height:200px;">
+                                <div class="app-loading-spinner"></div>
+                            </div>
+                        </Authorizing>
+                    </AuthorizeRouteView>
+                    <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+                </Found>
+                <NotFound>
+                    <PageTitle>Bulunamadı</PageTitle>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <MudPaper Class="ledajans-card pa-6 text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="font-size:3rem;color:#f46f2c;" Class="mb-3" />
+                            <MudText Typo="Typo.h6">Aradığınız sayfa bulunamadı.</MudText>
+                        </MudPaper>
+                    </LayoutView>
+                </NotFound>
+            </Router>
+        </ChildContent>
+        <ErrorContent>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudPaper Class="ledajans-card pa-6 text-center ma-4">
+                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" Style="font-size:3rem;" Class="mb-3" />
+                    <MudText Typo="Typo.h6" Class="mb-2">Bir sorun oluştu</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">Sayfayı yenileyin veya menüden başka bir sayfaya geçin.</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ReloadPage">Yenile</MudButton>
+                </MudPaper>
+            </LayoutView>
+        </ErrorContent>
+    </ErrorBoundary>
+</CascadingAuthenticationState>
+
+@code {
+    private readonly MudTheme _theme = LedajansTheme.Create();
+
+    private void ReloadPage() => NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+}
 

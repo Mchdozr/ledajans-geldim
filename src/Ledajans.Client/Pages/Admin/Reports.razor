@@ -352,10 +352,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _users = await UserService.GetAllAsync();
-        _employeeUsers = _users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
-        await LoadSummary();
-        await Load();
+        try
+        {
+            _users = await UserService.GetAllAsync();
+            _employeeUsers = _users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
+            await LoadSummary();
+            await Load();
+        }
+        catch
+        {
+            Snackbar.Add("Raporlar yüklenemedi.", Severity.Error);
+        }
     }
 
     private async Task OnDepartmentChanged()
@@ -367,15 +374,35 @@
     private async Task LoadSummary()
     {
         _summaryLoading = true;
-        _summary = await ReportService.GetTodaySummaryAsync(_department);
-        _summaryLoading = false;
+        try
+        {
+            _summary = await ReportService.GetTodaySummaryAsync(_department);
+        }
+        catch
+        {
+            _summary = new();
+        }
+        finally
+        {
+            _summaryLoading = false;
+        }
     }
 
     private async Task Load()
     {
         _loading = true;
-        _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId, _department);
-        _loading = false;
+        try
+        {
+            _items = await ReportService.GetAsync(ToDateOnly(_from), ToDateOnly(_to), _userId, _department);
+        }
+        catch
+        {
+            _items = new();
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task Export()

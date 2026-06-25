@@ -66,14 +66,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var state = await AuthState.GetAuthenticationStateAsync();
-        if (state.User.IsInRole(Roles.Admin))
+        try
         {
-            Navigation.NavigateTo("admin/users", replace: true);
-            return;
-        }
+            var state = await AuthState.GetAuthenticationStateAsync();
+            if (state.User.IsInRole(Roles.Admin))
+            {
+                Navigation.NavigateTo("admin/users", replace: true);
+                return;
+            }
 
-        _items = await AttendanceService.GetMyHistoryAsync();
-        _loading = false;
+            _items = await AttendanceService.GetMyHistoryAsync();
+        }
+        catch
+        {
+            _items = new();
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 }

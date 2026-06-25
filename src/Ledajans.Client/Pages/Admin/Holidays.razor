@@ -72,9 +72,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var users = await UserService.GetAllAsync();
-        _employees = users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
-        await Load();
+        try
+        {
+            var users = await UserService.GetAllAsync();
+            _employees = users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
+            await Load();
+        }
+        catch
+        {
+            Snackbar.Add("Veriler yüklenemedi.", Severity.Error);
+            _loading = false;
+        }
     }
 
     private async Task Load()

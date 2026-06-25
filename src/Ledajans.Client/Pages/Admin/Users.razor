@@ -278,7 +278,17 @@
     private DateTime? _historyFrom;
     private DateTime? _historyTo;
 
-    protected override async Task OnInitializedAsync() => await Load();
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Load();
+        }
+        catch
+        {
+            _loading = false;
+        }
+    }
 
     private bool FilterUsers(UserDto user) =>
         string.IsNullOrWhiteSpace(_search)
@@ -439,11 +449,21 @@
         if (_historyUser is null) return;
 
         _historyLoading = true;
-        _historyRecords = await ReportService.GetAsync(
-            ToDateOnly(_historyFrom),
-            ToDateOnly(_historyTo),
-            _historyUser.Id);
-        _historyLoading = false;
+        try
+        {
+            _historyRecords = await ReportService.GetAsync(
+                ToDateOnly(_historyFrom),
+                ToDateOnly(_historyTo),
+                _historyUser.Id);
+        }
+        catch
+        {
+            _historyRecords = new();
+        }
+        finally
+        {
+            _historyLoading = false;
+        }
     }
 
     private async Task ExportHistory()

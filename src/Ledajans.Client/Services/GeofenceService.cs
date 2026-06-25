@@ -11,9 +11,16 @@ public class GeofenceService
 
     public async Task<GeofenceDto?> GetAsync()
     {
-        var response = await _http.GetAsync("api/geofence");
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<GeofenceDto>();
+        try
+        {
+            var response = await _http.GetAsync("api/geofence");
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<GeofenceDto>();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<GeofenceDto?> UpdateAsync(GeofenceDto dto)
