@@ -155,31 +155,40 @@
 
         @if (_showLocationMap)
         {
-            <MudPaper Elevation="0" Class="ledajans-card pa-2 mt-3 employee-location-card">
-                <div class="employee-location-legend">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="employee-legend-office">
-                        Ofis alanı
-                    </MudChip>
-                    @if (_userLat is not null)
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                 Color="@(_withinRadius ? Color.Success : Color.Error)">
-                            @(_withinRadius ? "Alan içindesiniz" : "Alan dışındasınız")
-                        </MudChip>
-                        @if (_userAccuracy is not null)
-                        {
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary align-self-center">
-                                Hassasiyet: ±@Math.Round(_userAccuracy.Value) m
-                            </MudText>
-                        }
-                    }
-                    else if (_loadingLocation)
-                    {
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Konum alınıyor...</MudText>
-                    }
-                </div>
-                <div id="@MapElementId" class="employee-location-map"></div>
-            </MudPaper>
+            <ErrorBoundary>
+                <ChildContent>
+                    <MudPaper Elevation="0" Class="ledajans-card pa-2 mt-3 employee-location-card">
+                        <div class="employee-location-legend">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="employee-legend-office">
+                                Ofis alanı
+                            </MudChip>
+                            @if (_userLat is not null)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                         Color="@(_withinRadius ? Color.Success : Color.Error)">
+                                    @(_withinRadius ? "Alan içindesiniz" : "Alan dışındasınız")
+                                </MudChip>
+                                @if (_userAccuracy is not null)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary align-self-center">
+                                        Hassasiyet: ±@Math.Round(_userAccuracy.Value) m
+                                    </MudText>
+                                }
+                            }
+                            else if (_loadingLocation)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Konum alınıyor...</MudText>
+                            }
+                        </div>
+                        <div id="@MapElementId" class="employee-location-map"></div>
+                    </MudPaper>
+                </ChildContent>
+                <ErrorContent>
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-3">
+                        Konum haritası yüklenemedi. Giriş/çıkış yine de çalışır.
+                    </MudAlert>
+                </ErrorContent>
+            </ErrorBoundary>
         }
 
         <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-4 mud-text-secondary">
@@ -199,6 +208,8 @@
     private bool _hasCheckedOut;
     private bool _withinRadius;
     private bool _mapReady;
+    private bool _mapInitTried;
+    private bool _mapUnavailable;
     private double? _distanceMeters;
     private double? _userLat;
     private double? _userLng;
@@ -210,39 +221,63 @@
     private Severity _severity = Severity.Info;
     private Severity _distanceSeverity = Severity.Info;
 
-    private bool _showLocationMap => !_loadingStatus && !_hasCheckedOut && _geofence is not null;
+    private bool _showLocationMap => !_loadingStatus && !_hasCheckedOut && _geofence is not null && !_mapUnavailable;
 
     protected override async Task OnInitializedAsync()
     {
-        var state = await AuthState.GetAuthenticationStateAsync();
-        if (state.User.IsInRole(Roles.Admin))
+        try
         {
-            Navigation.NavigateTo("admin/users", replace: true);
-            return;
-        }
+            var state = await AuthState.GetAuthenticationStateAsync();
+            if (state.User.IsInRole(Roles.Admin))
+            {
+                Navigation.NavigateTo("admin/users", replace: true);
+                return;
+            }
 
-        _geofence = await GeofenceService.GetAsync();
-        await LoadStatus();
-        if (!_hasCheckedOut)
-            await RefreshDistance();
+            _geofence = await GeofenceService.GetAsync();
+            await LoadStatus();
+            if (!_hasCheckedOut)
+                await RefreshDistance();
+        }
+        catch (Exception)
+        {
+            _message = "Sayfa yüklenemedi. Sayfayı yenileyip tekrar deneyin.";
+            _severity = Severity.Error;
+            _loadingStatus = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_loadingStatus || _hasCheckedOut || _geofence is null)
+        if (!_showLocationMap)
         {
-            if (_mapReady)
-                await DestroyMapAsync();
+            await DestroyMapAsync();
             return;
         }
 
-        if (!_mapReady && _showLocationMap)
+        if (_mapReady || _mapInitTried || _geofence is null || _loadingStatus)
+            return;
+
+        _mapInitTried = true;
+        try
         {
-            await JS.InvokeVoidAsync("ledajansLocationMap.init",
+            await Task.Yield();
+            var ok = await JS.InvokeAsync<bool>("ledajansLocationMap.init",
                 MapElementId, _geofence.Latitude, _geofence.Longitude, _geofence.RadiusMeters);
+            if (!ok)
+            {
+                _mapUnavailable = true;
+                return;
+            }
+
             _mapReady = true;
             if (_userLat is not null && _userLng is not null)
                 await SyncMapUserAsync();
+        }
+        catch
+        {
+            _mapReady = false;
+            _mapUnavailable = true;
         }
     }
 
@@ -265,8 +300,15 @@
     private async Task SyncMapUserAsync()
     {
         if (!_mapReady || _userLat is null || _userLng is null) return;
-        await JS.InvokeVoidAsync("ledajansLocationMap.updateUser",
-            MapElementId, _userLat.Value, _userLng.Value, _userAccuracy ?? 0, _withinRadius);
+        try
+        {
+            await JS.InvokeVoidAsync("ledajansLocationMap.updateUser",
+                MapElementId, _userLat.Value, _userLng.Value, _userAccuracy ?? 0, _withinRadius);
+        }
+        catch
+        {
+            // harita senkronu başarısız olsa da uygulama çalışmaya devam etsin
+        }
     }
 
     private async Task LoadStatus()
@@ -289,6 +331,7 @@
         finally
         {
             _loadingStatus = false;
+            StateHasChanged();
         }
     }
 
@@ -323,9 +366,15 @@
             _message = ex.Message;
             _severity = Severity.Warning;
         }
+        catch (Exception)
+        {
+            _message = "Konum bilgisi alınamadı. Tekrar deneyin.";
+            _severity = Severity.Warning;
+        }
         finally
         {
             _loadingLocation = false;
+            StateHasChanged();
         }
     }
 

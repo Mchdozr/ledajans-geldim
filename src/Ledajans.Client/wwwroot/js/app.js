@@ -63,37 +63,45 @@ window.ledajansLocationMap = {
     _maps: {},
 
     init: function (elementId, officeLat, officeLng, radius) {
+        if (typeof L === 'undefined') return false;
+
         const el = document.getElementById(elementId);
-        if (!el) return;
+        if (!el) return false;
 
         this.destroy(elementId);
 
-        const map = L.map(elementId, { zoomControl: true, attributionControl: true }).setView([officeLat, officeLng], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        try {
+            const map = L.map(elementId, { zoomControl: true, attributionControl: true }).setView([officeLat, officeLng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
 
-        const officeCircle = L.circle([officeLat, officeLng], {
-            radius: radius,
-            color: '#f46f2c',
-            fillColor: '#f46f2c',
-            fillOpacity: 0.14,
-            weight: 2
-        }).addTo(map);
+            L.circle([officeLat, officeLng], {
+                radius: radius,
+                color: '#f46f2c',
+                fillColor: '#f46f2c',
+                fillOpacity: 0.14,
+                weight: 2
+            }).addTo(map);
 
-        L.marker([officeLat, officeLng], {
-            interactive: false,
-            keyboard: false
-        }).addTo(map);
+            L.marker([officeLat, officeLng], {
+                interactive: false,
+                keyboard: false
+            }).addTo(map);
 
-        this._maps[elementId] = { map, officeCircle, officeLat, officeLng, radius, userMarker: null, userRing: null };
-        setTimeout(() => map.invalidateSize(), 250);
+            this._maps[elementId] = { map, officeLat, officeLng, radius, userMarker: null, userRing: null };
+            setTimeout(() => map.invalidateSize(), 300);
+            return true;
+        } catch (e) {
+            console.error('ledajansLocationMap.init failed', e);
+            return false;
+        }
     },
 
     updateUser: function (elementId, lat, lng, accuracy, withinRadius) {
         const inst = this._maps[elementId];
-        if (!inst) return;
+        if (!inst || typeof L === 'undefined') return;
 
         const color = withinRadius ? '#27ae60' : '#e74c3c';
         const pos = [lat, lng];
@@ -127,11 +135,18 @@ window.ledajansLocationMap = {
             inst.userRing.setStyle({ color: color, fillColor: color });
         }
 
-        const bounds = L.latLngBounds([
-            [inst.officeLat, inst.officeLng],
-            pos
-        ]);
-        inst.map.fitBounds(bounds.pad(0.35), { maxZoom: 17 });
+        try {
+            const bounds = L.latLngBounds([
+                [inst.officeLat, inst.officeLng],
+                pos
+            ]);
+            if (bounds.isValid())
+                inst.map.fitBounds(bounds.pad(0.35), { maxZoom: 17 });
+            else
+                inst.map.setView(pos, 17);
+        } catch (e) {
+            inst.map.setView(pos, 17);
+        }
     },
 
     destroy: function (elementId) {
