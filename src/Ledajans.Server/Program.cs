@@ -24,7 +24,10 @@ if (!builder.Environment.IsDevelopment())
         throw new InvalidOperationException("Production icin Jwt__Key ortam degiskenini ayarlayin.");
 }
 
-if (builder.Environment.IsDevelopment())
+var runningInContainer = string.Equals(
+    Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true", StringComparison.OrdinalIgnoreCase);
+
+if (builder.Environment.IsDevelopment() && !runningInContainer)
 {
     builder.WebHost.ConfigureKestrel(serverOptions =>
     {
