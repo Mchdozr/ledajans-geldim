@@ -9,6 +9,25 @@ services:
       MYSQL_DATABASE: LedajansDb
     volumes:
       - ledajans_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    container_name: ledajans-app-dev
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=LedajansDb;User=root;Password=dev;"
+      Jwt__Key: "Ledajans-Dev-Key-Only-Not-For-Production-2026!!"
+      Seed__AdminPassword: "Admin123!"
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 volumes:
   ledajans_mysql_data:
