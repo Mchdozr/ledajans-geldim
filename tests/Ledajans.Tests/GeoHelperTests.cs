@@ -25,16 +25,19 @@ public class AttendanceGeofenceValidationTests
 {
     [Theory]
     [InlineData(50, 80, 100, 150, null)]
-    [InlineData(50, 120, 100, 150, "GPS hassasiyeti")]
+    [InlineData(50, 120, 100, 150, null)]
+    [InlineData(200, 120, 100, 150, "Konum doğrulanamadı")]
     [InlineData(200, 20, 100, 150, "Konum sınırının dışında")]
     public void ValidateGeofence_Scenarios(double distance, double accuracy, double maxAccuracy, double radius, string? expectedFragment)
     {
         var within = GeoHelper.IsWithinGeofence(distance, accuracy, radius);
         string? error = null;
 
-        if (accuracy > maxAccuracy)
-            error = $"GPS hassasiyeti çok düşük (±{Math.Round(accuracy)} m). Açık alana çıkıp tekrar deneyin.";
-        else if (!within)
+        if (within)
+            error = null;
+        else if (accuracy > maxAccuracy)
+            error = $"Konum doğrulanamadı (hassasiyet ±{Math.Round(accuracy)} m). Bilgisayarda pencere kenarında bekleyin; Wi-Fi ve konum izni açık olsun.";
+        else
             error = "Konum sınırının dışında görünüyorsunuz";
 
         if (expectedFragment is null)

@@ -24,9 +24,9 @@ public class GeolocationService
         => await _js.InvokeAsync<GeoPosition>("ledajansGeo.getCurrentPosition", new
         {
             mode = "checkin",
-            idealAccuracyMeters = 40,
-            maxAccuracyMeters = 200,
-            timeoutMs = 45000
+            idealAccuracyMeters = 60,
+            maxAccuracyMeters = 250,
+            timeoutMs = 60000
         });
 
     public Task<GeoPosition> GetCurrentPositionAsync() => GetPreviewPositionAsync();

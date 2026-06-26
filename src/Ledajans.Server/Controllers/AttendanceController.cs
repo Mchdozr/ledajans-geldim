@@ -245,19 +245,18 @@ public class AttendanceController : ControllerBase
 
         var accuracy = request.Accuracy is > 0 ? request.Accuracy.Value : 0;
 
+        if (GeoHelper.IsWithinGeofence(distance, accuracy, geofence.RadiusMeters))
+            return (null, distance);
+
+        var worstCase = distance + accuracy;
+        var outsideBy = Math.Max(0, Math.Round(worstCase - geofence.RadiusMeters));
+
         if (accuracy > _settings.MaxGpsAccuracyMeters)
         {
-            return ($"GPS hassasiyeti çok düşük (±{Math.Round(accuracy)} m). Açık alana çıkıp tekrar deneyin.", distance);
+            return ($"Konum doğrulanamadı (hassasiyet ±{Math.Round(accuracy)} m). Bilgisayarda pencere kenarında bekleyin; Wi-Fi ve konum izni açık olsun.", distance);
         }
 
-        if (!GeoHelper.IsWithinGeofence(distance, accuracy, geofence.RadiusMeters))
-        {
-            var worstCase = distance + accuracy;
-            var outsideBy = Math.Round(worstCase - geofence.RadiusMeters);
-            return ($"Konum sınırının dışında görünüyorsunuz (en iyi ihtimalle sınıra ~{outsideBy} m). Açık alana çıkıp tekrar deneyin.", distance);
-        }
-
-        return (null, distance);
+        return ($"Konum sınırının dışında görünüyorsunuz (en iyi ihtimalle sınıra ~{outsideBy} m). Açık alana çıkıp tekrar deneyin.", distance);
     }
 
     private async Task<bool> IsActiveEmployeeAsync()

@@ -13,13 +13,17 @@ window.ledajansGeo = {
         options = options || {};
 
         const isPreview = options.mode === 'preview';
-        const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : 40);
-        const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : 100);
-        const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : 45000);
-        const earlyAcceptMs = isPreview ? 3500 : 4000;
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isDesktopCheckin = !isPreview && !isMobile;
+
+        const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : (isDesktopCheckin ? 80 : 40));
+        const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : (isDesktopCheckin ? 250 : 120));
+        const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : (isDesktopCheckin ? 60000 : 45000));
+        const earlyAcceptMs = isPreview ? 3500 : (isDesktopCheckin ? 18000 : 6000);
+        const earlyAcceptMaxAccuracy = isDesktopCheckin ? 220 : 90;
         const geoOptions = {
             enableHighAccuracy: true,
-            maximumAge: isPreview ? 0 : 30000,
+            maximumAge: isPreview ? 0 : (isDesktopCheckin ? 0 : 30000),
             timeout: isPreview ? Math.min(timeoutMs, 15000) : timeoutMs
         };
 
@@ -42,7 +46,7 @@ window.ledajansGeo = {
             });
 
             const earlyTimer = setTimeout(() => {
-                if (best) finish(() => resolve(toResult(best)));
+                if (best && best.accuracy <= earlyAcceptMaxAccuracy) finish(() => resolve(toResult(best)));
             }, earlyAcceptMs);
 
             const timer = setTimeout(() => {
