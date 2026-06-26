@@ -1,6 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY src/Ledajans.Shared/Ledajans.Shared.csproj src/Ledajans.Shared/
 COPY src/Ledajans.Client/Ledajans.Client.csproj src/Ledajans.Client/
 COPY src/Ledajans.Server/Ledajans.Server.csproj src/Ledajans.Server/
