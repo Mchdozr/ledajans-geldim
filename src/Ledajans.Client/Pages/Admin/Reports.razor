@@ -1,6 +1,7 @@
 @page "/admin/reports"
 @attribute [Authorize(Roles = "Admin")]
 @inject ReportService ReportService
+@inject SettingsService SettingsService
 @inject AttendanceService AttendanceService
 @inject UserService UserService
 @inject GeolocationService GeolocationService
@@ -13,7 +14,7 @@
 <div class="admin-reports-page">
     <div class="page-header admin-reports-header">
         <MudText Typo="Typo.h5">Yoklama Raporları</MudText>
-        <div class="subtitle">Günlük özet ve geçmiş kayıtlar</div>
+        <div class="subtitle">Günlük özet ve geçmiş kayıtlar · İş başı @_workStartTime</div>
     </div>
 
     <MudPaper Elevation="0" Class="ledajans-card pa-3 pa-sm-4 mb-3 mb-sm-4">
@@ -349,6 +350,7 @@
     private DateTime? _manualDate = AppTime.TodayDate;
     private string? _manualNote;
     private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+    private string _workStartTime = "09:15";
 
     protected override async Task OnInitializedAsync()
     {
@@ -356,6 +358,8 @@
         {
             _users = await UserService.GetAllAsync();
             _employeeUsers = _users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
+            var policy = await SettingsService.GetAttendancePolicyAsync();
+            if (policy is not null) _workStartTime = policy.WorkStartTime;
             await LoadSummary();
             await Load();
         }

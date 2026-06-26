@@ -34,9 +34,17 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
                         Çıkış: @TurkishFormat.FormatDateTime(_checkOutLocal)
                     </MudText>
-                    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small" Class="mt-4">
-                        Gün kaydı tamam
-                    </MudChip>
+                    <div class="d-flex flex-wrap justify-center gap-2 mt-4">
+                        <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">
+                            Gün kaydı tamam
+                        </MudChip>
+                        @if (_isLate)
+                        {
+                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small">
+                                Geç kaldınız
+                            </MudChip>
+                        }
+                    </div>
                 }
                 else if (_hasCheckedIn)
                 {
@@ -44,9 +52,15 @@
                         <MudIcon Icon="@Icons.Material.Filled.Login" Color="Color.Success" Style="font-size:3.5rem;" />
                     </div>
                     <MudText Typo="Typo.h5" Style="font-weight:700;">Bugün geldiniz ✓</MudText>
-                    <MudText Typo="Typo.body1" Class="mud-text-secondary mt-2 mb-3">
+                    <MudText Typo="Typo.body1" Class="mud-text-secondary mt-2 mb-1">
                         Giriş: @TurkishFormat.FormatDateTime(_checkInLocal)
                     </MudText>
+                    @if (_isLate)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small" Class="mb-3">
+                            Geç kaldınız (iş başı @_workStartTime)
+                        </MudChip>
+                    }
 
                     @if (_loadingLocation)
                     {
@@ -184,6 +198,8 @@
     private bool _processingCheckout;
     private bool _hasCheckedIn;
     private bool _hasCheckedOut;
+    private bool _isLate;
+    private string _workStartTime = "09:15";
     private bool _withinRadius;
     private double? _distanceMeters;
     private double? _userLat;
@@ -230,6 +246,8 @@
             var status = await AttendanceService.GetTodayAsync();
             _hasCheckedIn = status.HasCheckedIn;
             _hasCheckedOut = status.HasCheckedOut;
+            _isLate = status.IsLate;
+            _workStartTime = status.WorkStartTime;
             _checkInLocal = status.CheckInUtc?.AddHours(3);
             _checkOutLocal = status.CheckOutUtc?.AddHours(3);
         }
@@ -313,10 +331,11 @@
             : Severity.Error;
     }
 
-    private void ApplyCheckedInState(DateTime? checkInUtc)
+    private void ApplyCheckedInState(DateTime? checkInUtc, bool isLate = false)
     {
         _hasCheckedIn = true;
         _checkInLocal = checkInUtc?.AddHours(3);
+        _isLate = isLate;
     }
 
     private Task<GeoPosition> ResolveActionPositionAsync()
@@ -338,10 +357,12 @@
 
             if (result.Success)
             {
-                ApplyCheckedInState(result.CheckInUtc);
+                ApplyCheckedInState(result.CheckInUtc, result.IsLate);
                 _message = null;
                 if (result.AlreadyCheckedIn)
                     Snackbar.Add("Bugün zaten giriş yaptınız.", Severity.Info);
+                else if (result.IsLate)
+                    Snackbar.Add($"Giriş kaydedildi — iş başı saatinden ({_workStartTime}) sonra geldiniz.", Severity.Warning);
                 else
                     Snackbar.Add("Geldiğiniz kaydedildi.", Severity.Success);
                 await RefreshDistance();

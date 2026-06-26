@@ -6,7 +6,6 @@ using Ledajans.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Ledajans.Server.Controllers;
 
@@ -18,12 +17,12 @@ public class ReportsController : ControllerBase
     private static readonly CultureInfo TrCulture = CultureInfo.GetCultureInfo("tr-TR");
 
     private readonly AppDbContext _db;
-    private readonly AttendanceSettings _settings;
+    private readonly IAttendancePolicyService _policy;
 
-    public ReportsController(AppDbContext db, IOptions<AttendanceSettings> settings)
+    public ReportsController(AppDbContext db, IAttendancePolicyService policy)
     {
         _db = db;
-        _settings = settings.Value;
+        _policy = policy;
     }
 
     [HttpGet("today-summary")]
@@ -207,6 +206,7 @@ public class ReportsController : ControllerBase
             presentRecords = presentRecords.Where(r => r.User?.Department == department).ToList();
 
         var presentUserIds = presentRecords.Select(r => r.UserId).ToHashSet();
+        var resolvedPolicy = await _policy.GetResolvedAsync();
         var present = presentRecords
             .Select(r => AttendanceController.MapToReportItem(
                 r,
@@ -217,7 +217,7 @@ public class ReportsController : ControllerBase
                     FullName = "(bilinmeyen kullanıcı)",
                     Department = Departments.Teknik
                 },
-                _settings))
+                resolvedPolicy.IsLate(r.CheckInUtc)))
             .ToList();
 
         var excused = activeEmployees.Where(e => excusedIds.Contains(e.UserId)).ToList();
@@ -317,6 +317,7 @@ public class ReportsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(department)) query = query.Where(a => a.User!.Department == department);
 
         var records = await query.OrderByDescending(a => a.CheckInUtc).ToListAsync();
+        var resolvedPolicy = await _policy.GetResolvedAsync();
 
         return records
             .Select(r => AttendanceController.MapToReportItem(
@@ -328,7 +329,7 @@ public class ReportsController : ControllerBase
                     FullName = "(bilinmeyen kullanıcı)",
                     Department = Departments.Teknik
                 },
-                _settings))
+                resolvedPolicy.IsLate(r.CheckInUtc)))
             .ToList();
     }
 }

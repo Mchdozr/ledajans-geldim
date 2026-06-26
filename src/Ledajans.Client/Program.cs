@@ -36,5 +36,6 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<NonWorkingDayService>();
 builder.Services.AddScoped<GeolocationService>();
+builder.Services.AddScoped<SettingsService>();
 
 await builder.Build().RunAsync();

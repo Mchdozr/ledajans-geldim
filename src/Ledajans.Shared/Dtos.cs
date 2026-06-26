@@ -35,6 +35,7 @@ public record CheckInResponse
 {
     public bool Success { get; set; }
     public bool AlreadyCheckedIn { get; set; }
+    public bool IsLate { get; set; }
     public string Message { get; set; } = string.Empty;
     public DateTime? CheckInUtc { get; set; }
     public double DistanceMeters { get; set; }
@@ -54,6 +55,8 @@ public record TodayStatusResponse
     public DateTime? CheckInUtc { get; set; }
     public bool HasCheckedOut { get; set; }
     public DateTime? CheckOutUtc { get; set; }
+    public bool IsLate { get; set; }
+    public string WorkStartTime { get; set; } = "09:15";
 }
 
 public record GeofenceDto
@@ -203,6 +206,18 @@ public record MyAttendanceHistoryItem
     public DateTime CheckInUtc { get; set; }
     public DateTime? CheckOutUtc { get; set; }
     public double DistanceMeters { get; set; }
+    public bool IsLate { get; set; }
+}
+
+public record AttendancePolicyDto
+{
+    [Range(0, 23)]
+    public int LateCheckInHour { get; set; } = 9;
+
+    [Range(0, 59)]
+    public int LateCheckInMinute { get; set; } = 15;
+
+    public string WorkStartTime { get; set; } = "09:15";
 }
 
 public static class Roles

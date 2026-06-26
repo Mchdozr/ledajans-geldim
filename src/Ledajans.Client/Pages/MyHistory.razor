@@ -59,10 +59,18 @@
                         <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">Çıkış henüz işaretlenmedi</MudText>
                     }
                 </div>
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                         Color="@(item.CheckOutUtc is not null ? Color.Success : Color.Primary)">
-                    @(item.CheckOutUtc is not null ? "Tamamlandı" : "Yalnızca giriş")
-                </MudChip>
+                <div class="d-flex flex-column align-end gap-1">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Color="@(item.CheckOutUtc is not null ? Color.Success : Color.Primary)">
+                        @(item.CheckOutUtc is not null ? "Tamamlandı" : "Yalnızca giriş")
+                    </MudChip>
+                    @if (item.IsLate)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning">
+                            Geç kaldı
+                        </MudChip>
+                    }
+                </div>
             </div>
         }
     }

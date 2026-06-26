@@ -59,6 +59,7 @@ builder.Services.AddSingleton<ILookupNormalizer, TurkishLookupNormalizer>();
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<AttendanceSettings>(builder.Configuration.GetSection(AttendanceSettings.SectionName));
+builder.Services.AddScoped<IAttendancePolicyService, AttendancePolicyService>();
 builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddAuthentication(options =>

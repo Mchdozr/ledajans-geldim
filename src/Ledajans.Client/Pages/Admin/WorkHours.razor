@@ -1,0 +1,82 @@
+@page "/admin/work-hours"
+@attribute [Authorize(Roles = "Admin")]
+@inject SettingsService SettingsService
+@inject ISnackbar Snackbar
+
+<PageTitle>İş Başı Saati - Ledajans</PageTitle>
+
+<div class="page-header mb-4">
+    <MudText Typo="Typo.h5">İş Başı Saati</MudText>
+    <div class="subtitle">Bu saatten sonra giriş yapanlar "geç kaldı" olarak işaretlenir</div>
+</div>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-4" Style="max-width:420px;">
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    }
+    else
+    {
+        <MudTimePicker @bind-Time="_workStart" Label="İş başı saati (TR)" Variant="Variant.Outlined"
+                       Margin="Margin.Dense" AmPm="false" Editable="true" Class="mb-2" />
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">
+            Örnek: 09:15 seçilirse, 09:16 ve sonrası girişler geç sayılır.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="Save" Disabled="_saving">
+            Kaydet
+        </MudButton>
+    }
+</MudPaper>
+
+@code {
+    private TimeSpan? _workStart = new TimeSpan(9, 15, 0);
+    private bool _loading = true;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var policy = await SettingsService.GetAttendancePolicyAsync();
+            if (policy is not null)
+                _workStart = new TimeSpan(policy.LateCheckInHour, policy.LateCheckInMinute, 0);
+        }
+        catch
+        {
+            Snackbar.Add("Ayarlar yüklenemedi.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task Save()
+    {
+        if (_workStart is null)
+        {
+            Snackbar.Add("Saat seçin.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        var dto = new AttendancePolicyDto
+        {
+            LateCheckInHour = _workStart.Value.Hours,
+            LateCheckInMinute = _workStart.Value.Minutes
+        };
+
+        var result = await SettingsService.UpdateAttendancePolicyAsync(dto);
+        _saving = false;
+
+        if (result is null)
+        {
+            Snackbar.Add("Kayıt başarısız.", Severity.Error);
+            return;
+        }
+
+        _workStart = new TimeSpan(result.LateCheckInHour, result.LateCheckInMinute, 0);
+        Snackbar.Add($"İş başı saati {result.WorkStartTime} olarak kaydedildi.", Severity.Success);
+    }
+}

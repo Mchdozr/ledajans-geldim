@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Ledajans.Server.Controllers;
 
@@ -17,16 +16,16 @@ public class AttendanceController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly AttendanceSettings _settings;
+    private readonly IAttendancePolicyService _policy;
 
     public AttendanceController(
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
-        IOptions<AttendanceSettings> settings)
+        IAttendancePolicyService policy)
     {
         _db = db;
         _userManager = userManager;
-        _settings = settings.Value;
+        _policy = policy;
     }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -39,13 +38,16 @@ public class AttendanceController : ControllerBase
 
         var today = AppTime.Today;
         var record = await FindTodayRecordAsync(UserId, today);
+        var policy = await _policy.GetAsync();
 
         return Ok(new TodayStatusResponse
         {
             HasCheckedIn = record is not null,
             CheckInUtc = record?.CheckInUtc,
             HasCheckedOut = record?.CheckOutUtc is not null,
-            CheckOutUtc = record?.CheckOutUtc
+            CheckOutUtc = record?.CheckOutUtc,
+            IsLate = record is not null && await _policy.IsLateAsync(record.CheckInUtc),
+            WorkStartTime = policy.WorkStartTime
         });
     }
 
@@ -62,7 +64,7 @@ public class AttendanceController : ControllerBase
         var today = AppTime.Today;
         var existing = await FindTodayRecordAsync(UserId, today);
         if (existing is not null)
-            return Ok(AlreadyCheckedInResponse(existing.CheckInUtc, geo.Distance));
+            return Ok(await AlreadyCheckedInResponseAsync(existing.CheckInUtc, geo.Distance));
 
         var now = DateTime.UtcNow;
         _db.AttendanceRecords.Add(new AttendanceRecord
@@ -84,7 +86,7 @@ public class AttendanceController : ControllerBase
         {
             var saved = await FindTodayRecordAsync(UserId, today);
             return Ok(saved is not null
-                ? AlreadyCheckedInResponse(saved.CheckInUtc, geo.Distance)
+                ? await AlreadyCheckedInResponseAsync(saved.CheckInUtc, geo.Distance)
                 : new CheckInResponse { Success = false, Message = "Kayıt çakışması oluştu. Tekrar deneyin.", DistanceMeters = geo.Distance });
         }
         catch (DbUpdateException)
@@ -102,7 +104,8 @@ public class AttendanceController : ControllerBase
             Success = true,
             Message = "Geldiğiniz başarıyla kaydedildi.",
             CheckInUtc = now,
-            DistanceMeters = geo.Distance
+            DistanceMeters = geo.Distance,
+            IsLate = await _policy.IsLateAsync(now)
         });
     }
 
@@ -193,7 +196,7 @@ public class AttendanceController : ControllerBase
         _db.AttendanceRecords.Add(record);
         await _db.SaveChangesAsync();
 
-        return Ok(MapToReportItem(record, user));
+        return Ok(await MapToReportItemAsync(record, user));
     }
 
     [HttpDelete("{id:int}")]
@@ -217,18 +220,21 @@ public class AttendanceController : ControllerBase
 
         if (limit is < 1 or > 500) limit = 100;
 
-        var items = await _db.AttendanceRecords
+        var policy = await _policy.GetResolvedAsync();
+        var rows = await _db.AttendanceRecords
             .Where(a => a.UserId == UserId)
             .OrderByDescending(a => a.CheckInUtc)
             .Take(limit)
-            .Select(a => new MyAttendanceHistoryItem
-            {
-                LocalDate = a.LocalDate,
-                CheckInUtc = a.CheckInUtc,
-                CheckOutUtc = a.CheckOutUtc,
-                DistanceMeters = a.DistanceMeters
-            })
             .ToListAsync();
+
+        var items = rows.Select(a => new MyAttendanceHistoryItem
+        {
+            LocalDate = a.LocalDate,
+            CheckInUtc = a.CheckInUtc,
+            CheckOutUtc = a.CheckOutUtc,
+            DistanceMeters = a.DistanceMeters,
+            IsLate = policy.IsLate(a.CheckInUtc)
+        }).ToList();
 
         return Ok(items);
     }
@@ -244,6 +250,7 @@ public class AttendanceController : ControllerBase
             request.Latitude, request.Longitude), 1);
 
         var accuracy = request.Accuracy is > 0 ? request.Accuracy.Value : 0;
+        var maxAccuracy = await _policy.GetMaxGpsAccuracyMetersAsync();
 
         if (GeoHelper.IsWithinGeofence(distance, accuracy, geofence.RadiusMeters))
             return (null, distance);
@@ -251,7 +258,7 @@ public class AttendanceController : ControllerBase
         var worstCase = distance + accuracy;
         var outsideBy = Math.Max(0, Math.Round(worstCase - geofence.RadiusMeters));
 
-        if (accuracy > _settings.MaxGpsAccuracyMeters)
+        if (accuracy > maxAccuracy)
         {
             return ($"Konum doğrulanamadı (hassasiyet ±{Math.Round(accuracy)} m). Bilgisayarda pencere kenarında bekleyin; Wi-Fi ve konum izni açık olsun.", distance);
         }
@@ -265,7 +272,7 @@ public class AttendanceController : ControllerBase
         return user is not null && user.IsActive;
     }
 
-    internal static AttendanceReportItem MapToReportItem(AttendanceRecord record, ApplicationUser user, AttendanceSettings settings)
+    internal static AttendanceReportItem MapToReportItem(AttendanceRecord record, ApplicationUser user, bool isLate)
         => new()
         {
             Id = record.Id,
@@ -282,11 +289,11 @@ public class AttendanceController : ControllerBase
             IpAddress = record.IpAddress,
             IsManual = record.IsManual,
             AdminNote = record.AdminNote,
-            IsLate = settings.IsLate(record.CheckInUtc)
+            IsLate = isLate
         };
 
-    private AttendanceReportItem MapToReportItem(AttendanceRecord record, ApplicationUser user)
-        => MapToReportItem(record, user, _settings);
+    private async Task<AttendanceReportItem> MapToReportItemAsync(AttendanceRecord record, ApplicationUser user)
+        => MapToReportItem(record, user, await _policy.IsLateAsync(record.CheckInUtc));
 
     private async Task<TodayRecordSnapshot?> FindTodayRecordAsync(string userId, DateOnly today)
         => await _db.AttendanceRecords
@@ -297,14 +304,15 @@ public class AttendanceController : ControllerBase
     private Task<AttendanceRecord?> FindTodayRecordEntityAsync(string userId, DateOnly today)
         => _db.AttendanceRecords.FirstOrDefaultAsync(a => a.UserId == userId && a.LocalDate == today);
 
-    private static CheckInResponse AlreadyCheckedInResponse(DateTime checkInUtc, double distance)
+    private async Task<CheckInResponse> AlreadyCheckedInResponseAsync(DateTime checkInUtc, double distance)
         => new()
         {
             Success = true,
             AlreadyCheckedIn = true,
             Message = "Bugün zaten 'Geldim' işaretlediniz.",
             CheckInUtc = checkInUtc,
-            DistanceMeters = distance
+            DistanceMeters = distance,
+            IsLate = await _policy.IsLateAsync(checkInUtc)
         };
 
     private static bool IsDuplicateAttendance(DbUpdateException ex)
