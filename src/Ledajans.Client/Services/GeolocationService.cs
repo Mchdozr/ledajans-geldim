@@ -26,7 +26,7 @@ public class GeolocationService
             mode = "checkin",
             idealAccuracyMeters = 60,
             maxAccuracyMeters = 250,
-            timeoutMs = 60000
+            timeoutMs = 45000
         });
 
     public Task<GeoPosition> GetCurrentPositionAsync() => GetPreviewPositionAsync();

@@ -18,13 +18,17 @@ window.ledajansGeo = {
 
         const idealAccuracy = options.idealAccuracyMeters ?? (isPreview ? 60 : (isDesktopCheckin ? 80 : 40));
         const maxAccuracy = options.maxAccuracyMeters ?? (isPreview ? 250 : (isDesktopCheckin ? 250 : 120));
-        const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : (isDesktopCheckin ? 60000 : 45000));
-        const earlyAcceptMs = isPreview ? 3500 : (isDesktopCheckin ? 18000 : 6000);
-        const earlyAcceptMaxAccuracy = isDesktopCheckin ? 220 : 90;
+        const timeoutMs = options.timeoutMs ?? (isPreview ? 10000 : (isDesktopCheckin ? 45000 : 35000));
         const geoOptions = {
             enableHighAccuracy: true,
-            maximumAge: isPreview ? 0 : (isDesktopCheckin ? 0 : 30000),
-            timeout: isPreview ? Math.min(timeoutMs, 15000) : timeoutMs
+            maximumAge: isPreview ? 0 : (isDesktopCheckin ? 0 : 15000),
+            timeout: isPreview ? Math.min(timeoutMs, 12000) : Math.min(timeoutMs, 20000)
+        };
+
+        const spreadMeters = (a, b) => {
+            const dLat = (b.latitude - a.latitude) * 111320;
+            const dLng = (b.longitude - a.longitude) * 111320 * Math.cos(a.latitude * Math.PI / 180);
+            return Math.sqrt(dLat * dLat + dLng * dLng);
         };
 
         return new Promise((resolve, reject) => {
@@ -33,8 +37,10 @@ window.ledajansGeo = {
                 return;
             }
 
+            const startTime = Date.now();
             let best = null;
             let watchId = null;
+            let pollId = null;
             let settled = false;
             const readings = [];
 
@@ -44,10 +50,6 @@ window.ledajansGeo = {
                 accuracy: p.accuracy,
                 lowAccuracy: p.accuracy > idealAccuracy
             });
-
-            const earlyTimer = setTimeout(() => {
-                if (best && best.accuracy <= earlyAcceptMaxAccuracy) finish(() => resolve(toResult(best)));
-            }, earlyAcceptMs);
 
             const timer = setTimeout(() => {
                 if (!best) {
@@ -61,7 +63,7 @@ window.ledajansGeo = {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
-                clearTimeout(earlyTimer);
+                if (pollId !== null) clearInterval(pollId);
                 if (watchId !== null) navigator.geolocation.clearWatch(watchId);
                 fn();
             };
@@ -83,12 +85,52 @@ window.ledajansGeo = {
                 finish(() => reject(msg));
             };
 
-            const isStable = () => {
+            const isAccuracyStable = () => {
                 if (readings.length < 2) return false;
                 const recent = readings.slice(-3);
                 const accSpread = Math.max(...recent.map(r => r.accuracy)) - Math.min(...recent.map(r => r.accuracy));
-                const last = recent[recent.length - 1];
-                return last.accuracy <= idealAccuracy && accSpread <= 20;
+                return accSpread <= 25;
+            };
+
+            const isClusterStable = (maxSpreadMeters, maxAccuracyMeters) => {
+                if (readings.length < 2 || !best) return false;
+                const recent = readings.slice(-3);
+                const centerLat = recent.reduce((s, r) => s + r.latitude, 0) / recent.length;
+                const centerLng = recent.reduce((s, r) => s + r.longitude, 0) / recent.length;
+                const center = { latitude: centerLat, longitude: centerLng };
+                const maxDist = Math.max(...recent.map(r => spreadMeters(center, r)));
+                return maxDist <= maxSpreadMeters && best.accuracy <= maxAccuracyMeters;
+            };
+
+            const shouldAcceptNow = () => {
+                if (!best) return false;
+                const elapsed = Date.now() - startTime;
+                const acc = best.accuracy;
+
+                if (isPreview) {
+                    return elapsed >= 2000 && acc <= 180;
+                }
+
+                // Telefon: iyi sinyal → hızlı kabul
+                if (acc <= 25) return elapsed >= 800;
+                if (acc <= 40) return elapsed >= 1500;
+                if (acc <= 60) return elapsed >= 2500;
+                if (acc <= 80 && isAccuracyStable()) return elapsed >= 3000;
+                if (acc <= 100) return elapsed >= 4500;
+
+                // Masaüstü: ölçümler aynı noktada kümeleniyorsa erken kabul (Wi-Fi sabitlendi)
+                if (isDesktopCheckin) {
+                    if (isClusterStable(18, acc) && elapsed >= 3500) return true;
+                    if (isClusterStable(25, 160) && elapsed >= 5500) return true;
+                    if (isClusterStable(35, 220) && elapsed >= 8000) return true;
+                    if (acc <= 130 && isAccuracyStable() && elapsed >= 6000) return true;
+                }
+
+                return false;
+            };
+
+            const tryAccept = () => {
+                if (shouldAcceptNow()) finish(() => resolve(toResult(best)));
             };
 
             const consider = (pos) => {
@@ -101,14 +143,12 @@ window.ledajansGeo = {
 
                 readings.push(candidate);
                 if (!best || candidate.accuracy < best.accuracy) best = candidate;
-
-                if (candidate.accuracy <= idealAccuracy && isStable()) {
-                    finish(() => resolve(toResult(best)));
-                }
+                tryAccept();
             };
 
-            navigator.geolocation.getCurrentPosition(consider, () => { /* watch devam */ }, geoOptions);
+            pollId = setInterval(tryAccept, 350);
 
+            navigator.geolocation.getCurrentPosition(consider, () => { /* watch devam */ }, geoOptions);
             watchId = navigator.geolocation.watchPosition(consider, onError, geoOptions);
         });
     }
