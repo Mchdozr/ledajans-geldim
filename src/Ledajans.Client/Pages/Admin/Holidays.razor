@@ -13,26 +13,48 @@
 
 <MudPaper Elevation="0" Class="ledajans-card pa-3 pa-sm-4 mb-4">
     <MudText Typo="Typo.subtitle2" Class="mb-3">Yeni Kayıt</MudText>
-    <MudRadioGroup @bind-Value="_type" Class="mb-3 d-flex gap-4">
+    <MudRadioGroup @bind-Value="_type" Class="mb-3 d-flex flex-wrap gap-3">
         <MudRadio Value="@NonWorkingDayTypes.Holiday" Color="Color.Primary">Resmi tatil (herkes)</MudRadio>
-        <MudRadio Value="@NonWorkingDayTypes.Leave" Color="Color.Primary">Çalışan izni</MudRadio>
+        <MudRadio Value="@NonWorkingDayTypes.Leave" Color="Color.Primary">Günlük izin</MudRadio>
+        <MudRadio Value="@NonWorkingDayTypes.AnnualLeave" Color="Color.Primary">Yıllık izin (aralık)</MudRadio>
     </MudRadioGroup>
-    <div class="admin-reports-filter-grid">
-        <MudDatePicker @bind-Date="_date" Label="Tarih" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
-        @if (_type == NonWorkingDayTypes.Leave)
-        {
+
+    @if (_type == NonWorkingDayTypes.AnnualLeave)
+    {
+        <div class="admin-reports-filter-grid">
             <MudSelect T="string" @bind-Value="_userId" Label="Çalışan" Variant="Variant.Outlined" Required="true">
                 @foreach (var u in _employees)
                 {
                     <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
                 }
             </MudSelect>
-        }
-        <MudTextField @bind-Value="_note" Label="Not" Variant="Variant.Outlined" />
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Add" Disabled="_saving" Class="align-self-end">
-            Ekle
-        </MudButton>
-    </div>
+            <MudDatePicker @bind-Date="_fromDate" Label="Başlangıç" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+            <MudDatePicker @bind-Date="_toDate" Label="Bitiş" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+            <MudTextField @bind-Value="_note" Label="Not" Variant="Variant.Outlined" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddAnnualLeave" Disabled="_saving" Class="align-self-end">
+                Yıllık İzin Ekle
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="admin-reports-filter-grid">
+            <MudDatePicker @bind-Date="_date" Label="Tarih" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+            @if (_type == NonWorkingDayTypes.Leave)
+            {
+                <MudSelect T="string" @bind-Value="_userId" Label="Çalışan" Variant="Variant.Outlined" Required="true">
+                    @foreach (var u in _employees)
+                    {
+                        <MudSelectItem T="string" Value="@u.Id">@u.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            <MudTextField @bind-Value="_note" Label="Not" Variant="Variant.Outlined" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Add" Disabled="_saving" Class="align-self-end">
+                Ekle
+            </MudButton>
+        </div>
+    }
 </MudPaper>
 
 <MudPaper Elevation="0" Class="ledajans-card pa-0">
@@ -46,7 +68,7 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd>@TurkishFormat.FormatDate(context.Date)</MudTd>
-            <MudTd>@(context.Type == NonWorkingDayTypes.Holiday ? "Resmi tatil" : "İzin")</MudTd>
+            <MudTd>@FormatType(context.Type)</MudTd>
             <MudTd>@(context.UserFullName ?? "Tüm çalışanlar")</MudTd>
             <MudTd>@(context.Note ?? "—")</MudTd>
             <MudTd>
@@ -65,6 +87,8 @@
     private List<UserDto> _employees = new();
     private string _type = NonWorkingDayTypes.Holiday;
     private DateTime? _date = AppTime.TodayDate;
+    private DateTime? _fromDate = AppTime.TodayDate;
+    private DateTime? _toDate = AppTime.TodayDate;
     private string? _userId;
     private string? _note;
     private bool _loading;
@@ -88,8 +112,8 @@
     private async Task Load()
     {
         _loading = true;
-        var from = AppTime.Today.AddMonths(-1);
-        var to = AppTime.Today.AddMonths(3);
+        var from = AppTime.Today.AddMonths(-6);
+        var to = AppTime.Today.AddMonths(12);
         _items = await NonWorkingDayService.GetAsync(from, to);
         _loading = false;
     }
@@ -129,6 +153,53 @@
         await Load();
     }
 
+    private async Task AddAnnualLeave()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            Snackbar.Add("Çalışan seçin.", Severity.Warning);
+            return;
+        }
+
+        if (_fromDate is null || _toDate is null)
+        {
+            Snackbar.Add("Başlangıç ve bitiş tarihi seçin.", Severity.Warning);
+            return;
+        }
+
+        var from = DateOnly.FromDateTime(_fromDate.Value);
+        var to = DateOnly.FromDateTime(_toDate.Value);
+        if (from > to)
+        {
+            Snackbar.Add("Başlangıç tarihi bitişten büyük olamaz.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        var result = await NonWorkingDayService.CreateRangeAsync(new CreateNonWorkingDayRangeRequest
+        {
+            FromDate = from,
+            ToDate = to,
+            UserId = _userId,
+            Type = NonWorkingDayTypes.AnnualLeave,
+            Note = _note
+        });
+        _saving = false;
+
+        if (result is null)
+        {
+            Snackbar.Add("Eklenemedi. Tarihler çakışıyor olabilir.", Severity.Error);
+            return;
+        }
+
+        var msg = $"{result.CreatedCount} gün yıllık izin eklendi.";
+        if (result.SkippedCount > 0)
+            msg += $" ({result.SkippedCount} gün zaten kayıtlıydı)";
+        Snackbar.Add(msg, Severity.Success);
+        _note = null;
+        await Load();
+    }
+
     private async Task Delete(int id)
     {
         if (!await NonWorkingDayService.DeleteAsync(id))
@@ -140,4 +211,12 @@
         Snackbar.Add("Silindi.", Severity.Success);
         await Load();
     }
+
+    private static string FormatType(string type) => type switch
+    {
+        NonWorkingDayTypes.Holiday => "Resmi tatil",
+        NonWorkingDayTypes.AnnualLeave => "Yıllık izin",
+        NonWorkingDayTypes.Leave => "Günlük izin",
+        _ => type
+    };
 }

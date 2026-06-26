@@ -14,4 +14,5 @@ public static class NonWorkingDayTypes
 {
     public const string Holiday = "Holiday";
     public const string Leave = "Leave";
+    public const string AnnualLeave = "AnnualLeave";
 }

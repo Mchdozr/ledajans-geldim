@@ -189,6 +189,29 @@ public record CreateNonWorkingDayRequest
     public string? Note { get; set; }
 }
 
+public record CreateNonWorkingDayRangeRequest
+{
+    [Required]
+    public DateOnly FromDate { get; set; }
+
+    [Required]
+    public DateOnly ToDate { get; set; }
+
+    [Required]
+    public string UserId { get; set; } = string.Empty;
+
+    public string Type { get; set; } = NonWorkingDayTypes.AnnualLeave;
+
+    [MaxLength(500)]
+    public string? Note { get; set; }
+}
+
+public record CreateNonWorkingDayRangeResponse
+{
+    public int CreatedCount { get; set; }
+    public int SkippedCount { get; set; }
+}
+
 public record ManualCheckInRequest
 {
     [Required(ErrorMessage = "Kullanıcı gerekli")]

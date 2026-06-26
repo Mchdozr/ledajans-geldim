@@ -49,7 +49,7 @@ public class NonWorkingDaysController : ControllerBase
         else if (string.IsNullOrWhiteSpace(request.UserId))
             return BadRequest(new { message = "İzin için çalışan seçilmelidir." });
 
-        if (request.Type == NonWorkingDayTypes.Leave)
+        if (request.Type is NonWorkingDayTypes.Leave or NonWorkingDayTypes.AnnualLeave)
         {
             var exists = await _db.NonWorkingDays.AnyAsync(n =>
                 n.Date == request.Date && n.UserId == request.UserId);
@@ -87,6 +87,61 @@ public class NonWorkingDaysController : ControllerBase
             UserId = entity.UserId,
             UserFullName = user?.FullName,
             Note = entity.Note
+        });
+    }
+
+    [HttpPost("range")]
+    public async Task<ActionResult<CreateNonWorkingDayRangeResponse>> CreateRange(CreateNonWorkingDayRangeRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserId))
+            return BadRequest(new { message = "Çalışan seçilmelidir." });
+
+        if (request.FromDate > request.ToDate)
+            return BadRequest(new { message = "Başlangıç tarihi bitişten büyük olamaz." });
+
+        var dayCount = request.ToDate.DayNumber - request.FromDate.DayNumber + 1;
+        if (dayCount > 366)
+            return BadRequest(new { message = "En fazla 366 günlük izin aralığı girilebilir." });
+
+        var user = await _db.Users.FindAsync(request.UserId);
+        if (user is null)
+            return NotFound(new { message = "Kullanıcı bulunamadı." });
+
+        var existingDates = await _db.NonWorkingDays
+            .Where(n => n.UserId == request.UserId && n.Date >= request.FromDate && n.Date <= request.ToDate)
+            .Select(n => n.Date)
+            .ToListAsync();
+        var existingSet = existingDates.ToHashSet();
+
+        var created = 0;
+        var skipped = 0;
+        for (var d = request.FromDate; d <= request.ToDate; d = d.AddDays(1))
+        {
+            if (existingSet.Contains(d))
+            {
+                skipped++;
+                continue;
+            }
+
+            _db.NonWorkingDays.Add(new NonWorkingDay
+            {
+                Date = d,
+                Type = request.Type,
+                UserId = request.UserId,
+                Note = request.Note
+            });
+            created++;
+        }
+
+        if (created == 0)
+            return Conflict(new { message = "Seçilen aralıkta eklenecek yeni gün yok (tümü zaten kayıtlı)." });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new CreateNonWorkingDayRangeResponse
+        {
+            CreatedCount = created,
+            SkippedCount = skipped
         });
     }
 

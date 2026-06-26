@@ -24,6 +24,13 @@ public class NonWorkingDayService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<CreateNonWorkingDayRangeResponse?> CreateRangeAsync(CreateNonWorkingDayRangeRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/nonworkingdays/range", request);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CreateNonWorkingDayRangeResponse>();
+    }
+
     public async Task<bool> DeleteAsync(int id)
     {
         var response = await _http.DeleteAsync($"api/nonworkingdays/{id}");
