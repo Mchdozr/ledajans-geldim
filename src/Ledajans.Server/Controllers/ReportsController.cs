@@ -50,14 +50,14 @@ public class ReportsController : ControllerBase
             sb.AppendLine(string.Join(';',
                 i.LocalDate.ToString("yyyy-MM-dd"),
                 Csv(i.Department),
-                i.UserName,
-                i.FullName,
+                Csv(i.UserName),
+                Csv(i.FullName),
                 localTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
                 checkOutTime,
                 i.IsLate ? "Evet" : "Hayir",
                 i.IsManual ? "Evet" : "Hayir",
                 i.DistanceMeters.ToString(CultureInfo.InvariantCulture),
-                i.AdminNote ?? ""));
+                Csv(i.AdminNote)));
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
@@ -244,7 +244,7 @@ public class ReportsController : ControllerBase
         var days = await _db.NonWorkingDays.Where(n => n.Date == date).ToListAsync();
         var result = new HashSet<string>();
 
-        if (days.Any(d => d.UserId is null))
+        if (days.Any(d => d.UserId is null && d.Type == NonWorkingDayTypes.Holiday))
         {
             var allIds = await GetActiveEmployeeIdsAsync();
             foreach (var id in allIds) result.Add(id);

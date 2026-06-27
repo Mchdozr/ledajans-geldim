@@ -44,6 +44,9 @@ public class NonWorkingDaysController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<NonWorkingDayDto>> Create(CreateNonWorkingDayRequest request)
     {
+        if (!IsValidType(request.Type))
+            return BadRequest(new { message = "Geçersiz izin/tatil türü." });
+
         if (request.Type == NonWorkingDayTypes.Holiday)
             request.UserId = null;
         else if (string.IsNullOrWhiteSpace(request.UserId))
@@ -93,6 +96,9 @@ public class NonWorkingDaysController : ControllerBase
     [HttpPost("range")]
     public async Task<ActionResult<CreateNonWorkingDayRangeResponse>> CreateRange(CreateNonWorkingDayRangeRequest request)
     {
+        if (!IsValidType(request.Type))
+            return BadRequest(new { message = "Geçersiz izin/tatil türü." });
+
         if (string.IsNullOrWhiteSpace(request.UserId))
             return BadRequest(new { message = "Çalışan seçilmelidir." });
 
@@ -154,4 +160,7 @@ public class NonWorkingDaysController : ControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    private static bool IsValidType(string type)
+        => type is NonWorkingDayTypes.Holiday or NonWorkingDayTypes.Leave or NonWorkingDayTypes.AnnualLeave;
 }

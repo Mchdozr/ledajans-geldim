@@ -6,6 +6,9 @@ public static class GeoHelper
 
     public static double DistanceMeters(double lat1, double lon1, double lat2, double lon2)
     {
+        if (!AreValidCoordinates(lat1, lon1) || !AreValidCoordinates(lat2, lon2))
+            return double.PositiveInfinity;
+
         var dLat = ToRad(lat2 - lat1);
         var dLon = ToRad(lon2 - lon1);
         var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
@@ -27,4 +30,10 @@ public static class GeoHelper
         var accuracy = accuracyMeters > 0 ? accuracyMeters : 0;
         return distanceMeters + accuracy <= radiusMeters;
     }
+
+    public static bool AreValidCoordinates(double latitude, double longitude)
+        => latitude is >= -90 and <= 90
+           && longitude is >= -180 and <= 180
+           && !double.IsNaN(latitude) && !double.IsNaN(longitude)
+           && !double.IsInfinity(latitude) && !double.IsInfinity(longitude);
 }

@@ -19,6 +19,29 @@ public class GeoHelperTests
         var d = GeoHelper.DistanceMeters(41.0, 29.0, 41.0, 29.0);
         Assert.True(d < 1);
     }
+
+    [Theory]
+    [InlineData(double.NaN, 29.0)]
+    [InlineData(41.0, double.NaN)]
+    [InlineData(double.PositiveInfinity, 29.0)]
+    [InlineData(91.0, 29.0)]
+    [InlineData(41.0, 181.0)]
+    public void AreValidCoordinates_RejectsInvalid(double lat, double lon)
+        => Assert.False(GeoHelper.AreValidCoordinates(lat, lon));
+
+    [Theory]
+    [InlineData(41.0, 29.0)]
+    [InlineData(-90.0, -180.0)]
+    [InlineData(90.0, 180.0)]
+    public void AreValidCoordinates_AcceptsValid(double lat, double lon)
+        => Assert.True(GeoHelper.AreValidCoordinates(lat, lon));
+
+    [Fact]
+    public void DistanceMeters_InvalidCoordinates_ReturnsInfinity()
+    {
+        var d = GeoHelper.DistanceMeters(double.NaN, 29.0, 41.0, 29.0);
+        Assert.True(double.IsPositiveInfinity(d));
+    }
 }
 
 public class AttendanceGeofenceValidationTests
@@ -55,5 +78,23 @@ public class AppTimeTests
         var utc = new DateTime(2026, 6, 25, 21, 0, 0, DateTimeKind.Utc);
         var expected = DateOnly.FromDateTime(utc.AddHours(3));
         Assert.Equal(expected, DateOnly.FromDateTime(utc.AddHours(3)));
+    }
+
+    [Fact]
+    public void TurkeyLocalToUtc_ConvertsFromTrToUtc()
+    {
+        var date = new DateOnly(2026, 6, 25);
+        var time = new TimeOnly(9, 0);
+        var utc = AppTime.TurkeyLocalToUtc(date, time);
+        Assert.Equal(DateTimeKind.Utc, utc.Kind);
+        Assert.Equal(new DateTime(2026, 6, 25, 6, 0, 0, DateTimeKind.Utc), utc);
+    }
+
+    [Fact]
+    public void ToTurkey_AddsThreeHours()
+    {
+        var utc = new DateTime(2026, 6, 25, 6, 0, 0, DateTimeKind.Utc);
+        var tr = AppTime.ToTurkey(utc);
+        Assert.Equal(new DateTime(2026, 6, 25, 9, 0, 0), tr);
     }
 }

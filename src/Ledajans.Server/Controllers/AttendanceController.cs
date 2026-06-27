@@ -115,9 +115,7 @@ public class AttendanceController : ControllerBase
         if (!await IsActiveEmployeeAsync())
             return Unauthorized(new { message = "Hesabınız pasif." });
 
-        var geo = await ValidateGeofenceAsync(request);
-        if (geo.Error is not null)
-            return Ok(new CheckOutResponse { Success = false, Message = geo.Error, DistanceMeters = geo.Distance });
+        var distance = await GetDistanceMetersAsync(request);
 
         var today = AppTime.Today;
         var record = await FindTodayRecordEntityAsync(UserId, today);
@@ -128,7 +126,7 @@ public class AttendanceController : ControllerBase
             {
                 Success = false,
                 Message = "Önce 'Geldim' işaretlemeniz gerekiyor.",
-                DistanceMeters = geo.Distance
+                DistanceMeters = distance
             });
         }
 
@@ -138,7 +136,7 @@ public class AttendanceController : ControllerBase
             {
                 Success = false,
                 Message = "Bugün zaten 'Çıkış Yaptım' işaretlediniz.",
-                DistanceMeters = geo.Distance
+                DistanceMeters = distance
             });
         }
 
@@ -146,7 +144,7 @@ public class AttendanceController : ControllerBase
         record.CheckOutUtc = now;
         record.CheckOutLatitude = request.Latitude;
         record.CheckOutLongitude = request.Longitude;
-        record.CheckOutDistanceMeters = geo.Distance;
+        record.CheckOutDistanceMeters = distance;
         record.CheckOutIpAddress = ClientIpHelper.GetClientIp(HttpContext);
 
         await _db.SaveChangesAsync();
@@ -156,8 +154,22 @@ public class AttendanceController : ControllerBase
             Success = true,
             Message = "Çıkışınız başarıyla kaydedildi.",
             CheckOutUtc = now,
-            DistanceMeters = geo.Distance
+            DistanceMeters = distance
         });
+    }
+
+    private async Task<double> GetDistanceMetersAsync(CheckInRequest request)
+    {
+        if (!GeoHelper.AreValidCoordinates(request.Latitude, request.Longitude))
+            return 0;
+
+        var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
+        if (geofence is null)
+            return 0;
+
+        return Math.Round(GeoHelper.DistanceMeters(
+            geofence.Latitude, geofence.Longitude,
+            request.Latitude, request.Longitude), 1);
     }
 
     [HttpPost("manual")]
@@ -171,6 +183,9 @@ public class AttendanceController : ControllerBase
         if (!await _userManager.IsInRoleAsync(user, Roles.Employee))
             return BadRequest(new { message = "Yalnızca çalışan hesaplarına manuel kayıt eklenebilir." });
 
+        if (!user.IsActive)
+            return BadRequest(new { message = "Pasif çalışana manuel kayıt eklenemez." });
+
         var localDate = request.LocalDate ?? AppTime.Today;
         var exists = await _db.AttendanceRecords
             .AnyAsync(a => a.UserId == request.UserId && a.LocalDate == localDate);
@@ -179,11 +194,14 @@ public class AttendanceController : ControllerBase
             return Conflict(new { message = "Bu tarih için zaten kayıt var." });
 
         var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
-        var now = DateTime.UtcNow;
+        var policy = await _policy.GetResolvedAsync();
+        var checkInUtc = localDate == AppTime.Today
+            ? DateTime.UtcNow
+            : AppTime.TurkeyLocalToUtc(localDate, policy.LateThreshold);
         var record = new AttendanceRecord
         {
             UserId = request.UserId,
-            CheckInUtc = now,
+            CheckInUtc = checkInUtc,
             LocalDate = localDate,
             Latitude = geofence?.Latitude ?? 0,
             Longitude = geofence?.Longitude ?? 0,
@@ -241,6 +259,18 @@ public class AttendanceController : ControllerBase
 
     private async Task<(string? Error, double Distance)> ValidateGeofenceAsync(CheckInRequest request)
     {
+        var measured = await MeasureGeofenceAsync(request);
+        if (measured.Error is not null)
+            return measured;
+
+        return (null, measured.Distance);
+    }
+
+    private async Task<(string? Error, double Distance)> MeasureGeofenceAsync(CheckInRequest request)
+    {
+        if (!GeoHelper.AreValidCoordinates(request.Latitude, request.Longitude))
+            return ("Geçersiz konum koordinatları.", 0);
+
         var geofence = await _db.Geofences.FirstOrDefaultAsync(g => g.IsActive);
         if (geofence is null)
             return ("Aktif konum tanımlı değil. Yöneticinize başvurun.", 0);

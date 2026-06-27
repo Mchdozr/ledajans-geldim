@@ -11,4 +11,7 @@ public static class AppTime
     public static DateTime ToTurkey(DateTime utc) => DateTime.SpecifyKind(utc.Add(TurkeyOffset), DateTimeKind.Unspecified);
 
     public static TimeOnly TimeInTurkey(DateTime utc) => TimeOnly.FromDateTime(ToTurkey(utc));
+
+    public static DateTime TurkeyLocalToUtc(DateOnly date, TimeOnly time)
+        => DateTime.SpecifyKind(date.ToDateTime(time).Add(-TurkeyOffset), DateTimeKind.Utc);
 }
