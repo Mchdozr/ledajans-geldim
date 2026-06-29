@@ -18,6 +18,7 @@ src/
 
 ## Özellikler
 - Çalışan: tek büyük "Geldim" butonu, günlük durum, konum izni/uzaklık geri bildirimi
+- Cihaz eşlemesi: bir cihaz yalnızca bir çalışana bağlanır (admin muaf)
 - Admin: kullanıcı oluşturma/düzenleme/şifre verme, konum + yarıçap ayarı (harita), tarih/kullanıcı bazlı raporlar, CSV dışa aktarma
 
 ## Çalıştırma (Visual Studio Enterprise)
@@ -31,6 +32,24 @@ dotnet run --project src/Ledajans.Server
 ```
 - Uygulama: https://localhost:7259
 - Swagger: https://localhost:7259/swagger
+
+### Docker ile
+Kod güncelledikten sonra imajı yeniden derleyin (eski WASM cache'lenmesin):
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+- Uygulama: http://localhost:8080
+- Admin: `admin` / `Admin123!`
+
+**Cihaz eşlemesi testi** (yalnızca **Çalışan** rolü; admin muaf):
+1. Admin ile 2 çalışan kullanıcı oluşturun.
+2. Çıkış yapın → 1. çalışan ile giriş yapın (başarılı).
+3. Çıkış yapın → 2. çalışan ile aynı tarayıcıdan giriş deneyin → *"Bu cihaz daha önce başka bir kullanıcı için kayıt edilmiştir"* hatası.
+4. Admin → Kullanıcılar → durum sütununda **Cihaz kayıtlı (1)** rozeti görünür; menüden **Cihaz eşlemesini kaldır** ile sıfırlanabilir.
 
 ## Varsayılan Yönetici
 `appsettings.json > Seed` bölümünden ayarlanır:

@@ -65,10 +65,20 @@
                     </span>
                 </MudTd>
                 <MudTd Class="admin-users-col-status">
-                    <span class="status-pill @(context.IsActive ? "status-active" : "status-inactive")">
-                        <span class="status-dot"></span>
-                        @(context.IsActive ? "Aktif" : "Pasif")
-                    </span>
+                    <div class="d-flex flex-column gap-1">
+                        <span class="status-pill @(context.IsActive ? "status-active" : "status-inactive")">
+                            <span class="status-dot"></span>
+                            @(context.IsActive ? "Aktif" : "Pasif")
+                        </span>
+                        @if (context.Role == "Employee")
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Color="@(context.BoundDeviceCount > 0 ? Color.Info : Color.Default)"
+                                     Icon="@Icons.Material.Filled.PhonelinkLock">
+                                @(context.BoundDeviceCount > 0 ? $"Cihaz kayıtlı ({context.BoundDeviceCount})" : "Cihaz yok")
+                            </MudChip>
+                        }
+                    </div>
                 </MudTd>
                 <MudTd Class="admin-users-col-actions">
                     <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
@@ -443,7 +453,10 @@
 
         var (ok, error) = await UserService.ClearDevicesAsync(user.Id);
         if (ok)
+        {
             Snackbar.Add("Cihaz eşlemesi kaldırıldı.", Severity.Success);
+            await Load();
+        }
         else
             Snackbar.Add(error ?? "İşlem başarısız.", Severity.Error);
     }

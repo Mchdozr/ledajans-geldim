@@ -87,6 +87,7 @@ public record UserDto
     public string Role { get; set; } = "Employee";
     public string Department { get; set; } = Departments.Teknik;
     public bool IsActive { get; set; } = true;
+    public int BoundDeviceCount { get; set; }
 }
 
 public record CreateUserRequest

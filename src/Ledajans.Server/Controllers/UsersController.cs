@@ -1,5 +1,4 @@
 using Ledajans.Server.Data;
-using Ledajans.Server.Data;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,18 +13,28 @@ namespace Ledajans.Server.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AppDbContext _db;
 
-    public UsersController(UserManager<ApplicationUser> userManager) => _userManager = userManager;
+    public UsersController(UserManager<ApplicationUser> userManager, AppDbContext db)
+    {
+        _userManager = userManager;
+        _db = db;
+    }
 
     [HttpGet]
     public async Task<ActionResult<List<UserDto>>> GetAll()
     {
         var users = await _userManager.Users.OrderBy(u => u.FullName).ToListAsync();
+        var deviceCounts = await _db.UserDevices
+            .GroupBy(d => d.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
         var list = new List<UserDto>();
         foreach (var u in users)
         {
             var role = (await _userManager.GetRolesAsync(u)).FirstOrDefault() ?? Roles.Employee;
-            list.Add(ToDto(u, role));
+            list.Add(ToDto(u, role, deviceCounts.GetValueOrDefault(u.Id)));
         }
         return Ok(list);
     }
@@ -52,7 +61,7 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = string.Join(" ", result.Errors.Select(e => e.Description)) });
 
         await _userManager.AddToRoleAsync(user, role);
-        return Ok(ToDto(user, role));
+        return Ok(ToDto(user, role, 0));
     }
 
     [HttpPut("{id}")]
@@ -75,7 +84,8 @@ public class UsersController : ControllerBase
             await _userManager.AddToRoleAsync(user, newRole);
         }
 
-        return Ok(ToDto(user, newRole));
+        var deviceCount = await _db.UserDevices.CountAsync(d => d.UserId == id);
+        return Ok(ToDto(user, newRole, deviceCount));
     }
 
     [HttpPut("{id}/password")]
@@ -93,17 +103,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}/devices")]
-    public async Task<IActionResult> ClearDevices(string id, [FromServices] AppDbContext db)
+    public async Task<IActionResult> ClearDevices(string id)
     {
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
 
-        var devices = await db.UserDevices.Where(d => d.UserId == id).ToListAsync();
+        var devices = await _db.UserDevices.Where(d => d.UserId == id).ToListAsync();
         if (devices.Count == 0)
             return NoContent();
 
-        db.UserDevices.RemoveRange(devices);
-        await db.SaveChangesAsync();
+        _db.UserDevices.RemoveRange(devices);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
@@ -116,7 +126,7 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    private static UserDto ToDto(ApplicationUser u, string role) => new()
+    private static UserDto ToDto(ApplicationUser u, string role, int boundDeviceCount) => new()
     {
         Id = u.Id,
         UserName = u.UserName ?? string.Empty,
@@ -124,7 +134,8 @@ public class UsersController : ControllerBase
         Email = u.Email,
         Role = role,
         Department = u.Department,
-        IsActive = u.IsActive
+        IsActive = u.IsActive,
+        BoundDeviceCount = boundDeviceCount
     };
 
     private static string NormalizeDepartment(string? department)
