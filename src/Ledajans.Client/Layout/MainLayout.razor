@@ -2,6 +2,7 @@
 @inject AuthService AuthService
 @inject LocationService LocationService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <MudLayout>
@@ -22,18 +23,19 @@
         </AuthorizeView>
 
         <AuthorizeView>
-            <Authorized>
+            <Authorized Context="authContext">
                 <MudChip T="string" Size="Size.Small" Style="background:rgba(255,255,255,0.2);color:#fff;" Class="mr-2 d-none d-sm-flex">
-                    @context.User.FindFirst("fullName")?.Value
+                    @authContext.User.FindFirst("fullName")?.Value
                 </MudChip>
                 <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Dense="true">
                     <MudText Typo="Typo.body2" Class="px-4 py-2" Style="font-weight:600;">
-                        @context.User.FindFirst("fullName")?.Value
+                        @authContext.User.FindFirst("fullName")?.Value
                     </MudText>
                     <MudDivider />
-                    <AuthorizeView Roles="Admin" Context="adminCtx">
+                    @if (authContext.User.IsInRole(Roles.Admin))
+                    {
                         <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" OnClick="SwitchLocation">Kurum değiştir</MudMenuItem>
-                    </AuthorizeView>
+                    }
                     <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout">Çıkış Yap</MudMenuItem>
                 </MudMenu>
             </Authorized>
@@ -89,8 +91,6 @@
         if (authState.User.IsInRole(Roles.Admin) && !await LocationService.HasSelectionAsync())
             Navigation.NavigateTo("admin/select-location");
     }
-
-@inject AuthenticationStateProvider AuthStateProvider
 
     private void OnLocationChanged()
     {
