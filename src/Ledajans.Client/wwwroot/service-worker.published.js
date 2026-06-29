@@ -19,24 +19,23 @@ const base = "/";
 const baseUrl = new URL(base, self.origin);
 const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.url, baseUrl).href);
 
-async function onInstall(event) {
-    console.info('Service worker: Install');
+    async function onInstall(event) {
+        console.info('Service worker: Install');
 
-    const assetsRequests = self.assetsManifest.assets
-        .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
-        .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
-        .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
+        const assetsRequests = self.assetsManifest.assets
+            .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
+            .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
+            .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
 
-    const cache = await caches.open(cacheName);
-    for (const request of assetsRequests) {
-        try {
-            await cache.add(request);
-        } catch (e) {
-            console.warn('Service worker: asset skipped', request.url, e);
+        const cache = await caches.open(cacheName);
+        for (const request of assetsRequests) {
+            try {
+                await cache.add(request);
+            } catch (e) {
+                console.warn('Service worker: asset skipped', request.url, e);
+            }
         }
     }
-    self.skipWaiting();
-}
 
 async function onActivate(event) {
     console.info('Service worker: Activate');
