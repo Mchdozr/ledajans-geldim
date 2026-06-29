@@ -884,3 +884,108 @@ html, body {
         margin-left: auto;
     }
 }
+
+/* Kurum seçimi */
+.select-location-bg {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background: #111;
+}
+
+.select-location-shell {
+    width: min(560px, 100%);
+}
+
+.select-location-header {
+    margin-bottom: 2rem;
+}
+
+.select-location-title {
+    color: #fff;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.select-location-subtitle {
+    color: #9aa0a6;
+}
+
+.select-location-loading {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.select-location-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.select-location-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem 1.1rem;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    background: #181818;
+    color: #fff;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.select-location-item:hover {
+    background: #222;
+    border-color: #3a3a3a;
+}
+
+.select-location-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #bdbdbd;
+    flex-shrink: 0;
+}
+
+.select-location-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.select-location-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.select-location-role {
+    font-size: 0.85rem;
+    color: #9aa0a6;
+}
+
+.select-location-arrow {
+    color: #666;
+}
+
+.brand-location {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--ledajans-muted);
+    font-weight: 600;
+}
+
+.location-switch-btn {
+    text-transform: none;
+    font-weight: 600;
+}

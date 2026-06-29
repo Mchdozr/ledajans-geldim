@@ -1,101 +1,120 @@
 ﻿@inherits LayoutComponentBase
-
 @inject AuthService AuthService
-
+@inject LocationService LocationService
 @inject NavigationManager Navigation
-
-
+@implements IDisposable
 
 <MudLayout>
-
     <MudAppBar Elevation="0" Class="ledajans-appbar">
-
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        OnClick="@ToggleDrawer" />
         <span class="ledajans-brand-text ml-2">LEDAJANS</span>
         <MudSpacer />
 
-        <AuthorizeView>
-
-            <Authorized>
-
-                <MudChip T="string" Size="Size.Small" Style="background:rgba(255,255,255,0.2);color:#fff;" Class="mr-2 d-none d-sm-flex">
-
-                    @context.User.FindFirst("fullName")?.Value
-
-                </MudChip>
-
-                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Dense="true">
-
-                    <MudText Typo="Typo.body2" Class="px-4 py-2" Style="font-weight:600;">
-
-                        @context.User.FindFirst("fullName")?.Value
-
-                    </MudText>
-
-                    <MudDivider />
-
-                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout">Çıkış Yap</MudMenuItem>
-
-                </MudMenu>
-
-            </Authorized>
-
+        <AuthorizeView Roles="Admin">
+            @if (!string.IsNullOrWhiteSpace(_locationName))
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="d-none d-sm-flex mr-2 location-switch-btn"
+                           StartIcon="@Icons.Material.Filled.Business" OnClick="SwitchLocation">
+                    @_locationName
+                </MudButton>
+            }
         </AuthorizeView>
 
+        <AuthorizeView>
+            <Authorized>
+                <MudChip T="string" Size="Size.Small" Style="background:rgba(255,255,255,0.2);color:#fff;" Class="mr-2 d-none d-sm-flex">
+                    @context.User.FindFirst("fullName")?.Value
+                </MudChip>
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Dense="true">
+                    <MudText Typo="Typo.body2" Class="px-4 py-2" Style="font-weight:600;">
+                        @context.User.FindFirst("fullName")?.Value
+                    </MudText>
+                    <MudDivider />
+                    <AuthorizeView Roles="Admin" Context="adminCtx">
+                        <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" OnClick="SwitchLocation">Kurum değiştir</MudMenuItem>
+                    </AuthorizeView>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout">Çıkış Yap</MudMenuItem>
+                </MudMenu>
+            </Authorized>
+        </AuthorizeView>
     </MudAppBar>
 
-
-
     <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always"
-
                Variant="@DrawerVariant.Responsive" Style="border-right:1px solid #ece5df;">
-
         <div class="ledajans-drawer-header">
             <div class="ledajans-brand-text">LEDAJANS</div>
             <div class="brand-sub">Yoklama Sistemi</div>
+            @if (!string.IsNullOrWhiteSpace(_locationName))
+            {
+                <div class="brand-location">@_locationName</div>
+            }
         </div>
-
         <NavMenu />
-
     </MudDrawer>
 
-
-
     <MudMainContent Class="ledajans-main">
-
         <MudContainer MaxWidth="MaxWidth.Large" Class="py-5 px-4">
-
             @Body
-
         </MudContainer>
-
     </MudMainContent>
-
 </MudLayout>
 
-
-
 @code {
-
     private bool _drawerOpen = true;
+    private string? _locationName;
 
+    protected override async Task OnInitializedAsync()
+    {
+        LocationService.Changed += OnLocationChanged;
+        await EnsureAdminLocationAsync();
+        _locationName = await LocationService.GetNameAsync();
+    }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await EnsureAdminLocationAsync();
+        _locationName = await LocationService.GetNameAsync();
+    }
+
+    private async Task EnsureAdminLocationAsync()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+        if (!path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (path.Equals("/admin/select-location", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.IsInRole(Roles.Admin) && !await LocationService.HasSelectionAsync())
+            Navigation.NavigateTo("admin/select-location");
+    }
+
+@inject AuthenticationStateProvider AuthStateProvider
+
+    private void OnLocationChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _locationName = await LocationService.GetNameAsync();
+            StateHasChanged();
+        });
+    }
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
-
-
-    private async Task Logout()
-
+    private async Task SwitchLocation()
     {
-
-        await AuthService.LogoutAsync();
-
-        Navigation.NavigateTo("login", forceLoad: false);
-
+        await LocationService.ClearAsync();
+        Navigation.NavigateTo("admin/select-location");
     }
 
+    private async Task Logout()
+    {
+        await LocationService.ClearAsync();
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("login", forceLoad: false);
+    }
+
+    public void Dispose() => LocationService.Changed -= OnLocationChanged;
 }
-
-

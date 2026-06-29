@@ -1,4 +1,5 @@
 using Ledajans.Server.Data;
+using Ledajans.Server.Services;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,17 +15,35 @@ public class UsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly AppDbContext _db;
+    private readonly ILocationScope _locationScope;
 
-    public UsersController(UserManager<ApplicationUser> userManager, AppDbContext db)
+    public UsersController(
+        UserManager<ApplicationUser> userManager,
+        AppDbContext db,
+        ILocationScope locationScope)
     {
         _userManager = userManager;
         _db = db;
+        _locationScope = locationScope;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<UserDto>>> GetAll()
     {
-        var users = await _userManager.Users.OrderBy(u => u.FullName).ToListAsync();
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
+        var locationName = await _db.Locations
+            .Where(l => l.Id == locationId)
+            .Select(l => l.Name)
+            .FirstAsync();
+
+        var users = await _userManager.Users
+            .Where(u => u.LocationId == locationId || u.LocationId == null)
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+
         var deviceCounts = await _db.UserDevices
             .GroupBy(d => d.UserId)
             .Select(g => new { UserId = g.Key, Count = g.Count() })
@@ -34,7 +53,10 @@ public class UsersController : ControllerBase
         foreach (var u in users)
         {
             var role = (await _userManager.GetRolesAsync(u)).FirstOrDefault() ?? Roles.Employee;
-            list.Add(ToDto(u, role, deviceCounts.GetValueOrDefault(u.Id)));
+            if (role == Roles.Employee && u.LocationId != locationId)
+                continue;
+
+            list.Add(ToDto(u, role, deviceCounts.GetValueOrDefault(u.Id), locationName));
         }
         return Ok(list);
     }
@@ -42,7 +64,17 @@ public class UsersController : ControllerBase
     [HttpGet("device-bindings")]
     public async Task<ActionResult<List<UserDeviceBindingDto>>> GetDeviceBindings()
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
+        var locationUserIds = await _db.Users
+            .Where(u => u.LocationId == locationId)
+            .Select(u => u.Id)
+            .ToListAsync();
+
         var rows = await _db.UserDevices
+            .Where(d => locationUserIds.Contains(d.UserId))
             .OrderByDescending(d => d.LastLoginUtc)
             .ToListAsync();
 
@@ -76,10 +108,24 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create(CreateUserRequest request)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         if (await _userManager.FindByNameAsync(request.UserName) is not null)
             return BadRequest(new { message = "Bu kullanıcı adı zaten kullanımda." });
 
         var role = request.Role == Roles.Admin ? Roles.Admin : Roles.Employee;
+        var userLocationId = role == Roles.Admin ? request.LocationId : (request.LocationId ?? locationId);
+
+        if (role == Roles.Employee && userLocationId != locationId)
+            return BadRequest(new { message = "Çalışan yalnızca seçili kuruma eklenebilir." });
+
+        var locationName = await _db.Locations
+            .Where(l => l.Id == userLocationId)
+            .Select(l => l.Name)
+            .FirstOrDefaultAsync();
+
         var user = new ApplicationUser
         {
             UserName = request.UserName,
@@ -87,7 +133,8 @@ public class UsersController : ControllerBase
             EmailConfirmed = true,
             FullName = request.FullName,
             Department = NormalizeDepartment(request.Department),
-            IsActive = true
+            IsActive = true,
+            LocationId = userLocationId
         };
 
         var result = await _userManager.CreateAsync(user, request.Password);
@@ -95,22 +142,35 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = string.Join(" ", result.Errors.Select(e => e.Description)) });
 
         await _userManager.AddToRoleAsync(user, role);
-        return Ok(ToDto(user, role, 0));
+        return Ok(ToDto(user, role, 0, locationName));
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<UserDto>> Update(string id, UpdateUserRequest request)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
+
+        var newRole = request.Role == Roles.Admin ? Roles.Admin : Roles.Employee;
+        if (newRole == Roles.Employee && user.LocationId != locationId && request.LocationId != locationId)
+            return NotFound();
 
         user.FullName = request.FullName;
         user.Email = request.Email;
         user.IsActive = request.IsActive;
         user.Department = NormalizeDepartment(request.Department);
+
+        if (newRole == Roles.Employee)
+            user.LocationId = request.LocationId ?? locationId;
+        else if (request.LocationId.HasValue)
+            user.LocationId = request.LocationId;
+
         await _userManager.UpdateAsync(user);
 
-        var newRole = request.Role == Roles.Admin ? Roles.Admin : Roles.Employee;
         var currentRoles = await _userManager.GetRolesAsync(user);
         if (!currentRoles.Contains(newRole))
         {
@@ -118,15 +178,25 @@ public class UsersController : ControllerBase
             await _userManager.AddToRoleAsync(user, newRole);
         }
 
+        var locationName = user.LocationId is not null
+            ? await _db.Locations.Where(l => l.Id == user.LocationId).Select(l => l.Name).FirstOrDefaultAsync()
+            : null;
+
         var deviceCount = await _db.UserDevices.CountAsync(d => d.UserId == id);
-        return Ok(ToDto(user, newRole, deviceCount));
+        return Ok(ToDto(user, newRole, deviceCount, locationName));
     }
 
     [HttpPut("{id}/password")]
     public async Task<IActionResult> SetPassword(string id, SetPasswordRequest request)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
+        if (user.LocationId != locationId && user.LocationId is not null)
+            return NotFound();
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
         var result = await _userManager.ResetPasswordAsync(user, token, request.Password);
@@ -139,8 +209,14 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}/devices")]
     public async Task<IActionResult> ClearDevices(string id)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
+        if (user.LocationId != locationId)
+            return NotFound();
 
         var devices = await _db.UserDevices.Where(d => d.UserId == id).ToListAsync();
         if (devices.Count == 0)
@@ -154,13 +230,20 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
+        if (user.LocationId != locationId && user.LocationId is not null)
+            return NotFound();
+
         await _userManager.DeleteAsync(user);
         return NoContent();
     }
 
-    private static UserDto ToDto(ApplicationUser u, string role, int boundDeviceCount) => new()
+    private static UserDto ToDto(ApplicationUser u, string role, int boundDeviceCount, string? locationName) => new()
     {
         Id = u.Id,
         UserName = u.UserName ?? string.Empty,
@@ -169,7 +252,9 @@ public class UsersController : ControllerBase
         Role = role,
         Department = u.Department,
         IsActive = u.IsActive,
-        BoundDeviceCount = boundDeviceCount
+        BoundDeviceCount = boundDeviceCount,
+        LocationId = u.LocationId,
+        LocationName = locationName
     };
 
     private static string NormalizeDepartment(string? department)

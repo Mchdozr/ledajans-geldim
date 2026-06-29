@@ -18,27 +18,48 @@ public class ReportsController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly IAttendancePolicyService _policy;
+    private readonly ILocationScope _locationScope;
 
-    public ReportsController(AppDbContext db, IAttendancePolicyService policy)
+    public ReportsController(AppDbContext db, IAttendancePolicyService policy, ILocationScope locationScope)
     {
         _db = db;
         _policy = policy;
+        _locationScope = locationScope;
+    }
+
+    private async Task<ActionResult<int>> RequireLocationIdAsync()
+    {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+        return locationId.Value;
     }
 
     [HttpGet("today-summary")]
     public async Task<ActionResult<TodaySummaryResponse>> TodaySummary([FromQuery] string? department)
-        => Ok(await BuildSummaryForDateAsync(AppTime.Today, department));
+    {
+        var locationResult = await RequireLocationIdAsync();
+        if (locationResult.Result is not null) return locationResult.Result;
+        return Ok(await BuildSummaryForDateAsync(AppTime.Today, locationResult.Value!, department));
+    }
 
     [HttpGet]
     public async Task<ActionResult<List<AttendanceReportItem>>> Get(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? userId, [FromQuery] string? department)
-        => Ok(await QueryAsync(from, to, userId, department));
+    {
+        var locationResult = await RequireLocationIdAsync();
+        if (locationResult.Result is not null) return locationResult.Result;
+        return Ok(await QueryAsync(locationResult.Value!, from, to, userId, department));
+    }
 
     [HttpGet("export")]
     public async Task<IActionResult> Export(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? userId, [FromQuery] string? department)
     {
-        var items = await QueryAsync(from, to, userId, department);
+        var locationResult = await RequireLocationIdAsync();
+        if (locationResult.Result is not null) return locationResult.Result;
+
+        var items = await QueryAsync(locationResult.Value!, from, to, userId, department);
         var sb = new StringBuilder();
         sb.AppendLine("Tarih;Departman;Kullanici;AdSoyad;GirisSaati(TR);CikisSaati(TR);GecKaldi;Manuel;Uzaklik(m);Not");
         foreach (var i in items)
@@ -71,6 +92,10 @@ public class ReportsController : ControllerBase
         [FromQuery] DateOnly? to,
         [FromQuery] string? department)
     {
+        var locationResult = await RequireLocationIdAsync();
+        if (locationResult.Result is not null) return locationResult.Result;
+        var locationId = locationResult.Value!;
+
         if (from is not null && to is not null)
         {
             if (from > to)
@@ -80,27 +105,27 @@ public class ReportsController : ControllerBase
             if (days > 93)
                 return BadRequest(new { message = "En fazla 93 günlük dönem seçilebilir." });
 
-            var csv = await BuildPeriodAbsentCsvAsync(from.Value, to.Value, department);
+            var csv = await BuildPeriodAbsentCsvAsync(locationId, from.Value, to.Value, department);
             var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
             return File(bytes, "text/csv", $"gelmeyenler_{from:yyyyMMdd}_{to:yyyyMMdd}.csv");
         }
 
         var targetDate = date ?? AppTime.Today;
-        var summary = await BuildSummaryForDateAsync(targetDate, department);
+        var summary = await BuildSummaryForDateAsync(targetDate, locationId, department);
         var singleCsv = BuildSingleDayAbsentCsv(summary);
         var singleBytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(singleCsv)).ToArray();
         return File(singleBytes, "text/csv", $"gelmeyenler_{targetDate:yyyyMMdd}.csv");
     }
 
-    private async Task<string> BuildPeriodAbsentCsvAsync(DateOnly from, DateOnly to, string? department)
+    private async Task<string> BuildPeriodAbsentCsvAsync(int locationId, DateOnly from, DateOnly to, string? department)
     {
         var sb = new StringBuilder();
         var createdAt = AppTime.ToTurkey(DateTime.UtcNow);
-        var employees = await GetActiveEmployeesAsync(department);
+        var employees = await GetActiveEmployeesAsync(locationId, department);
         var totalDays = to.DayNumber - from.DayNumber + 1;
 
         var presentByDate = await _db.AttendanceRecords
-            .Where(a => a.LocalDate >= from && a.LocalDate <= to)
+            .Where(a => a.LocationId == locationId && a.LocalDate >= from && a.LocalDate <= to)
             .Select(a => new { a.LocalDate, a.UserId })
             .ToListAsync();
         var presentSet = presentByDate.Select(x => (x.LocalDate, x.UserId)).ToHashSet();
@@ -108,7 +133,7 @@ public class ReportsController : ControllerBase
         var rows = new List<(DateOnly Date, TodaySummaryEmployee Employee)>();
         for (var d = from; d <= to; d = d.AddDays(1))
         {
-            var excused = await GetExcusedUserIdsAsync(d);
+            var excused = await GetExcusedUserIdsAsync(locationId, d);
             foreach (var emp in employees)
             {
                 if (presentSet.Contains((d, emp.UserId))) continue;
@@ -189,16 +214,16 @@ public class ReportsController : ControllerBase
         return sb.ToString();
     }
 
-    private async Task<TodaySummaryResponse> BuildSummaryForDateAsync(DateOnly date, string? department = null)
+    private async Task<TodaySummaryResponse> BuildSummaryForDateAsync(DateOnly date, int locationId, string? department = null)
     {
-        var activeEmployees = await GetActiveEmployeesAsync(department);
-        var excusedIds = await GetExcusedUserIdsAsync(date);
+        var activeEmployees = await GetActiveEmployeesAsync(locationId, department);
+        var excusedIds = await GetExcusedUserIdsAsync(locationId, date);
         var isCompanyHoliday = await _db.NonWorkingDays.AnyAsync(n =>
-            n.Date == date && n.UserId == null && n.Type == NonWorkingDayTypes.Holiday);
+            n.LocationId == locationId && n.Date == date && n.UserId == null && n.Type == NonWorkingDayTypes.Holiday);
 
         var presentRecords = await _db.AttendanceRecords
             .Include(a => a.User)
-            .Where(a => a.LocalDate == date)
+            .Where(a => a.LocationId == locationId && a.LocalDate == date)
             .OrderBy(a => a.CheckInUtc)
             .ToListAsync();
 
@@ -206,7 +231,7 @@ public class ReportsController : ControllerBase
             presentRecords = presentRecords.Where(r => r.User?.Department == department).ToList();
 
         var presentUserIds = presentRecords.Select(r => r.UserId).ToHashSet();
-        var resolvedPolicy = await _policy.GetResolvedAsync();
+        var resolvedPolicy = await _policy.GetResolvedAsync(locationId);
         var present = presentRecords
             .Select(r => AttendanceController.MapToReportItem(
                 r,
@@ -239,14 +264,14 @@ public class ReportsController : ControllerBase
         };
     }
 
-    private async Task<HashSet<string>> GetExcusedUserIdsAsync(DateOnly date)
+    private async Task<HashSet<string>> GetExcusedUserIdsAsync(int locationId, DateOnly date)
     {
-        var days = await _db.NonWorkingDays.Where(n => n.Date == date).ToListAsync();
+        var days = await _db.NonWorkingDays.Where(n => n.LocationId == locationId && n.Date == date).ToListAsync();
         var result = new HashSet<string>();
 
         if (days.Any(d => d.UserId is null && d.Type == NonWorkingDayTypes.Holiday))
         {
-            var allIds = await GetActiveEmployeeIdsAsync();
+            var allIds = await GetActiveEmployeeIdsAsync(locationId);
             foreach (var id in allIds) result.Add(id);
             return result;
         }
@@ -257,7 +282,7 @@ public class ReportsController : ControllerBase
         return result;
     }
 
-    private async Task<List<string>> GetActiveEmployeeIdsAsync()
+    private async Task<List<string>> GetActiveEmployeeIdsAsync(int locationId)
     {
         var employeeRoleId = await _db.Roles
             .Where(r => r.Name == Roles.Employee)
@@ -265,12 +290,13 @@ public class ReportsController : ControllerBase
             .FirstOrDefaultAsync();
 
         return await _db.Users
-            .Where(u => u.IsActive && _db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == employeeRoleId))
+            .Where(u => u.IsActive && u.LocationId == locationId &&
+                        _db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == employeeRoleId))
             .Select(u => u.Id)
             .ToListAsync();
     }
 
-    private async Task<List<TodaySummaryEmployee>> GetActiveEmployeesAsync(string? department = null)
+    private async Task<List<TodaySummaryEmployee>> GetActiveEmployeesAsync(int locationId, string? department = null)
     {
         var employeeRoleId = await _db.Roles
             .Where(r => r.Name == Roles.Employee)
@@ -278,7 +304,8 @@ public class ReportsController : ControllerBase
             .FirstOrDefaultAsync();
 
         var query = _db.Users
-            .Where(u => u.IsActive && _db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == employeeRoleId));
+            .Where(u => u.IsActive && u.LocationId == locationId &&
+                        _db.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId == employeeRoleId));
 
         if (!string.IsNullOrWhiteSpace(department))
             query = query.Where(u => u.Department == department);
@@ -308,16 +335,19 @@ public class ReportsController : ControllerBase
     }
 
     private async Task<List<AttendanceReportItem>> QueryAsync(
-        DateOnly? from, DateOnly? to, string? userId, string? department)
+        int locationId, DateOnly? from, DateOnly? to, string? userId, string? department)
     {
-        var query = _db.AttendanceRecords.Include(a => a.User).AsQueryable();
+        var query = _db.AttendanceRecords
+            .Include(a => a.User)
+            .Where(a => a.LocationId == locationId)
+            .AsQueryable();
         if (from is not null) query = query.Where(a => a.LocalDate >= from);
         if (to is not null) query = query.Where(a => a.LocalDate <= to);
         if (!string.IsNullOrWhiteSpace(userId)) query = query.Where(a => a.UserId == userId);
         if (!string.IsNullOrWhiteSpace(department)) query = query.Where(a => a.User!.Department == department);
 
         var records = await query.OrderByDescending(a => a.CheckInUtc).ToListAsync();
-        var resolvedPolicy = await _policy.GetResolvedAsync();
+        var resolvedPolicy = await _policy.GetResolvedAsync(locationId);
 
         return records
             .Select(r => AttendanceController.MapToReportItem(

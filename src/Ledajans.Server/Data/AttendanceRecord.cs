@@ -3,6 +3,8 @@ namespace Ledajans.Server.Data;
 public class AttendanceRecord
 {
     public int Id { get; set; }
+    public int LocationId { get; set; }
+    public Location? Location { get; set; }
     public string UserId { get; set; } = string.Empty;
     public ApplicationUser? User { get; set; }
     public DateTime CheckInUtc { get; set; }

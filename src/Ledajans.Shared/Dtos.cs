@@ -2,6 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Ledajans.Shared;
 
+public record LocationDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
 public record LoginRequest
 {
     [Required(ErrorMessage = "Kullanıcı adı gerekli")]
@@ -88,6 +95,8 @@ public record UserDto
     public string Department { get; set; } = Departments.Teknik;
     public bool IsActive { get; set; } = true;
     public int BoundDeviceCount { get; set; }
+    public int? LocationId { get; set; }
+    public string? LocationName { get; set; }
 }
 
 public record UserDeviceBindingDto
@@ -118,6 +127,7 @@ public record CreateUserRequest
 
     public string Role { get; set; } = "Employee";
     public string Department { get; set; } = Departments.Teknik;
+    public int? LocationId { get; set; }
 }
 
 public record UpdateUserRequest
@@ -131,6 +141,7 @@ public record UpdateUserRequest
     public string Role { get; set; } = "Employee";
     public bool IsActive { get; set; } = true;
     public string Department { get; set; } = Departments.Teknik;
+    public int? LocationId { get; set; }
 }
 
 public record SetPasswordRequest

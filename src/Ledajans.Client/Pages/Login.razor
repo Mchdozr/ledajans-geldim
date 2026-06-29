@@ -65,7 +65,10 @@
     {
         var state = await AuthState.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated == true)
-            Navigation.NavigateTo(state.User.IsInRole(Roles.Admin) ? "admin/users" : "");
+        {
+            var url = state.User.IsInRole(Roles.Admin) ? "admin/select-location" : "";
+            Navigation.NavigateTo(url);
+        }
     }
 
     private async Task HandleLogin()
@@ -78,7 +81,7 @@
         if (error is null)
         {
             var state = await AuthState.GetAuthenticationStateAsync();
-            var defaultUrl = state.User.IsInRole(Roles.Admin) ? "admin/users" : "";
+            var defaultUrl = state.User.IsInRole(Roles.Admin) ? "admin/select-location" : "";
             Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? defaultUrl : Uri.UnescapeDataString(ReturnUrl));
         }
         else

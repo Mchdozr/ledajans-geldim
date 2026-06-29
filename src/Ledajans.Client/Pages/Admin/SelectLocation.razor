@@ -1,0 +1,85 @@
+@page "/admin/select-location"
+@attribute [Authorize(Roles = "Admin")]
+@layout EmptyLayout
+@inject LocationService LocationService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Kurum Seçin - Ledajans</PageTitle>
+
+<div class="select-location-bg">
+    <div class="select-location-shell">
+        <div class="select-location-header">
+            <MudText Typo="Typo.h4" Class="select-location-title">Kurum seçin</MudText>
+            <MudText Typo="Typo.body2" Class="select-location-subtitle">
+                Hesabınıza bağlı kurumlar. Yönetmek istediğinizi seçin.
+            </MudText>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="select-location-loading">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+        else
+        {
+            <div class="select-location-list">
+                @foreach (var location in _locations)
+                {
+                    <button type="button" class="select-location-item" @onclick="() => SelectAsync(location)">
+                        <span class="select-location-icon">
+                            <MudIcon Icon="@Icons.Material.Filled.Business" />
+                        </span>
+                        <span class="select-location-text">
+                            <span class="select-location-name">@location.Name</span>
+                            <span class="select-location-role">Yönetici</span>
+                        </span>
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="select-location-arrow" />
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<LocationDto> _locations = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true || !state.User.IsInRole(Roles.Admin))
+        {
+            Navigation.NavigateTo("login");
+            return;
+        }
+
+        try
+        {
+            _locations = await LocationService.GetAllAsync();
+            if (_locations.Count == 0)
+                _error = "Tanımlı kurum bulunamadı.";
+        }
+        catch
+        {
+            _error = "Kurum listesi yüklenemedi.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SelectAsync(LocationDto location)
+    {
+        await LocationService.SetAsync(location);
+        Navigation.NavigateTo("admin/users");
+    }
+}

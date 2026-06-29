@@ -7,6 +7,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public DbSet<Location> Locations => Set<Location>();
     public DbSet<Geofence> Geofences => Set<Geofence>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<NonWorkingDay> NonWorkingDays => Set<NonWorkingDay>();
@@ -17,6 +18,37 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<Location>(e =>
+        {
+            e.HasIndex(l => l.Code).IsUnique();
+        });
+
+        builder.Entity<Geofence>(e =>
+        {
+            e.HasIndex(g => g.LocationId).IsUnique();
+            e.HasOne(g => g.Location)
+                .WithMany()
+                .HasForeignKey(g => g.LocationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.HasOne(u => u.Location)
+                .WithMany()
+                .HasForeignKey(u => u.LocationId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<CompanySettings>(e =>
+        {
+            e.HasKey(s => s.LocationId);
+            e.HasOne(s => s.Location)
+                .WithMany()
+                .HasForeignKey(s => s.LocationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<AttendanceRecord>(e =>
         {
             e.HasIndex(a => new { a.UserId, a.LocalDate }).IsUnique();
@@ -24,14 +56,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(a => a.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(a => a.Location)
+                .WithMany()
+                .HasForeignKey(a => a.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<NonWorkingDay>(e =>
         {
-            e.HasIndex(n => new { n.Date, n.UserId });
+            e.HasIndex(n => new { n.Date, n.UserId, n.LocationId });
             e.HasOne(n => n.User)
                 .WithMany()
                 .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(n => n.Location)
+                .WithMany()
+                .HasForeignKey(n => n.LocationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

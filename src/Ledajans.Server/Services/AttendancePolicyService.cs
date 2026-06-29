@@ -7,8 +7,6 @@ namespace Ledajans.Server.Services;
 
 public class AttendancePolicyService : IAttendancePolicyService
 {
-    private const int SettingsId = 1;
-
     private readonly AppDbContext _db;
     private readonly AttendanceSettings _defaults;
 
@@ -18,23 +16,23 @@ public class AttendancePolicyService : IAttendancePolicyService
         _defaults = defaults.Value;
     }
 
-    public async Task<AttendancePolicyDto> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<AttendancePolicyDto> GetAsync(int locationId, CancellationToken cancellationToken = default)
     {
-        var policy = await ResolveAsync(cancellationToken);
+        var policy = await ResolveAsync(locationId, cancellationToken);
         return ToDto(policy);
     }
 
-    public async Task<AttendancePolicyDto> UpdateAsync(AttendancePolicyDto dto, CancellationToken cancellationToken = default)
+    public async Task<AttendancePolicyDto> UpdateAsync(int locationId, AttendancePolicyDto dto, CancellationToken cancellationToken = default)
     {
         if (dto.LateCheckInHour is < 0 or > 23)
             throw new ArgumentOutOfRangeException(nameof(dto.LateCheckInHour));
         if (dto.LateCheckInMinute is < 0 or > 59)
             throw new ArgumentOutOfRangeException(nameof(dto.LateCheckInMinute));
 
-        var row = await _db.CompanySettings.FindAsync([SettingsId], cancellationToken);
+        var row = await _db.CompanySettings.FindAsync([locationId], cancellationToken);
         if (row is null)
         {
-            row = new CompanySettings { Id = SettingsId };
+            row = new CompanySettings { LocationId = locationId };
             _db.CompanySettings.Add(row);
         }
 
@@ -42,28 +40,25 @@ public class AttendancePolicyService : IAttendancePolicyService
         row.LateCheckInMinute = dto.LateCheckInMinute;
         await _db.SaveChangesAsync(cancellationToken);
 
-        return ToDto(await ResolveAsync(cancellationToken));
+        return ToDto(await ResolveAsync(locationId, cancellationToken));
     }
 
-    public Task<ResolvedAttendancePolicy> GetResolvedAsync(CancellationToken cancellationToken = default)
-        => ResolveAsync(cancellationToken);
+    public Task<ResolvedAttendancePolicy> GetResolvedAsync(int locationId, CancellationToken cancellationToken = default)
+        => ResolveAsync(locationId, cancellationToken);
 
-    public async Task<bool> IsLateAsync(DateTime checkInUtc, CancellationToken cancellationToken = default)
+    public async Task<bool> IsLateAsync(int locationId, DateTime checkInUtc, CancellationToken cancellationToken = default)
     {
-        var policy = await ResolveAsync(cancellationToken);
+        var policy = await ResolveAsync(locationId, cancellationToken);
         return policy.IsLate(checkInUtc);
     }
 
-    public async Task<double> GetMaxGpsAccuracyMetersAsync(CancellationToken cancellationToken = default)
-    {
-        var policy = await ResolveAsync(cancellationToken);
-        return policy.MaxGpsAccuracyMeters;
-    }
+    public Task<double> GetMaxGpsAccuracyMetersAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(_defaults.MaxGpsAccuracyMeters);
 
-    private async Task<ResolvedAttendancePolicy> ResolveAsync(CancellationToken cancellationToken)
+    private async Task<ResolvedAttendancePolicy> ResolveAsync(int locationId, CancellationToken cancellationToken)
     {
         var row = await _db.CompanySettings.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == SettingsId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.LocationId == locationId, cancellationToken);
 
         return new ResolvedAttendancePolicy
         {

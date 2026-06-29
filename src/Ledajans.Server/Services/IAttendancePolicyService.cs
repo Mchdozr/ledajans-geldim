@@ -4,10 +4,10 @@ namespace Ledajans.Server.Services;
 
 public interface IAttendancePolicyService
 {
-    Task<AttendancePolicyDto> GetAsync(CancellationToken cancellationToken = default);
-    Task<ResolvedAttendancePolicy> GetResolvedAsync(CancellationToken cancellationToken = default);
-    Task<AttendancePolicyDto> UpdateAsync(AttendancePolicyDto dto, CancellationToken cancellationToken = default);
-    Task<bool> IsLateAsync(DateTime checkInUtc, CancellationToken cancellationToken = default);
+    Task<AttendancePolicyDto> GetAsync(int locationId, CancellationToken cancellationToken = default);
+    Task<ResolvedAttendancePolicy> GetResolvedAsync(int locationId, CancellationToken cancellationToken = default);
+    Task<AttendancePolicyDto> UpdateAsync(int locationId, AttendancePolicyDto dto, CancellationToken cancellationToken = default);
+    Task<bool> IsLateAsync(int locationId, DateTime checkInUtc, CancellationToken cancellationToken = default);
     Task<double> GetMaxGpsAccuracyMetersAsync(CancellationToken cancellationToken = default);
 }
 

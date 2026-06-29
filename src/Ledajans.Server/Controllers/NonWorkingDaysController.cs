@@ -1,4 +1,5 @@
 using Ledajans.Server.Data;
+using Ledajans.Server.Services;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,15 +13,27 @@ namespace Ledajans.Server.Controllers;
 public class NonWorkingDaysController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ILocationScope _locationScope;
 
-    public NonWorkingDaysController(AppDbContext db) => _db = db;
+    public NonWorkingDaysController(AppDbContext db, ILocationScope locationScope)
+    {
+        _db = db;
+        _locationScope = locationScope;
+    }
 
     [HttpGet]
     public async Task<ActionResult<List<NonWorkingDayDto>>> Get(
         [FromQuery] DateOnly? from,
         [FromQuery] DateOnly? to)
     {
-        var query = _db.NonWorkingDays.Include(n => n.User).AsQueryable();
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
+        var query = _db.NonWorkingDays
+            .Include(n => n.User)
+            .Where(n => n.LocationId == locationId)
+            .AsQueryable();
         if (from is not null) query = query.Where(n => n.Date >= from);
         if (to is not null) query = query.Where(n => n.Date <= to);
 
@@ -44,6 +57,10 @@ public class NonWorkingDaysController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<NonWorkingDayDto>> Create(CreateNonWorkingDayRequest request)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         if (!IsValidType(request.Type))
             return BadRequest(new { message = "Geçersiz izin/tatil türü." });
 
@@ -51,24 +68,31 @@ public class NonWorkingDaysController : ControllerBase
             request.UserId = null;
         else if (string.IsNullOrWhiteSpace(request.UserId))
             return BadRequest(new { message = "İzin için çalışan seçilmelidir." });
+        else
+        {
+            var user = await _db.Users.FindAsync(request.UserId);
+            if (user is null || user.LocationId != locationId)
+                return BadRequest(new { message = "Seçili kuruma ait çalışan seçilmelidir." });
+        }
 
         if (request.Type is NonWorkingDayTypes.Leave or NonWorkingDayTypes.AnnualLeave)
         {
             var exists = await _db.NonWorkingDays.AnyAsync(n =>
-                n.Date == request.Date && n.UserId == request.UserId);
+                n.LocationId == locationId && n.Date == request.Date && n.UserId == request.UserId);
             if (exists)
                 return Conflict(new { message = "Bu çalışan için bu tarihte zaten kayıt var." });
         }
         else
         {
             var exists = await _db.NonWorkingDays.AnyAsync(n =>
-                n.Date == request.Date && n.UserId == null && n.Type == NonWorkingDayTypes.Holiday);
+                n.LocationId == locationId && n.Date == request.Date && n.UserId == null && n.Type == NonWorkingDayTypes.Holiday);
             if (exists)
                 return Conflict(new { message = "Bu tarih için zaten resmi tatil tanımlı." });
         }
 
         var entity = new NonWorkingDay
         {
+            LocationId = locationId.Value,
             Date = request.Date,
             Type = request.Type,
             UserId = request.UserId,
@@ -78,9 +102,9 @@ public class NonWorkingDaysController : ControllerBase
         _db.NonWorkingDays.Add(entity);
         await _db.SaveChangesAsync();
 
-        ApplicationUser? user = null;
+        ApplicationUser? userEntity = null;
         if (entity.UserId is not null)
-            user = await _db.Users.FindAsync(entity.UserId);
+            userEntity = await _db.Users.FindAsync(entity.UserId);
 
         return Ok(new NonWorkingDayDto
         {
@@ -88,7 +112,7 @@ public class NonWorkingDaysController : ControllerBase
             Date = entity.Date,
             Type = entity.Type,
             UserId = entity.UserId,
-            UserFullName = user?.FullName,
+            UserFullName = userEntity?.FullName,
             Note = entity.Note
         });
     }
@@ -96,6 +120,10 @@ public class NonWorkingDaysController : ControllerBase
     [HttpPost("range")]
     public async Task<ActionResult<CreateNonWorkingDayRangeResponse>> CreateRange(CreateNonWorkingDayRangeRequest request)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         if (!IsValidType(request.Type))
             return BadRequest(new { message = "Geçersiz izin/tatil türü." });
 
@@ -112,9 +140,12 @@ public class NonWorkingDaysController : ControllerBase
         var user = await _db.Users.FindAsync(request.UserId);
         if (user is null)
             return NotFound(new { message = "Kullanıcı bulunamadı." });
+        if (user.LocationId != locationId)
+            return BadRequest(new { message = "Seçili kuruma ait çalışan seçilmelidir." });
 
         var existingDates = await _db.NonWorkingDays
-            .Where(n => n.UserId == request.UserId && n.Date >= request.FromDate && n.Date <= request.ToDate)
+            .Where(n => n.LocationId == locationId && n.UserId == request.UserId &&
+                        n.Date >= request.FromDate && n.Date <= request.ToDate)
             .Select(n => n.Date)
             .ToListAsync();
         var existingSet = existingDates.ToHashSet();
@@ -131,6 +162,7 @@ public class NonWorkingDaysController : ControllerBase
 
             _db.NonWorkingDays.Add(new NonWorkingDay
             {
+                LocationId = locationId.Value,
                 Date = d,
                 Type = request.Type,
                 UserId = request.UserId,
@@ -154,8 +186,14 @@ public class NonWorkingDaysController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        var locationId = await _locationScope.GetAdminLocationIdAsync();
+        if (locationId is null)
+            return BadRequest(new { message = "Kurum seçimi gerekli." });
+
         var item = await _db.NonWorkingDays.FindAsync(id);
-        if (item is null) return NotFound();
+        if (item is null || item.LocationId != locationId)
+            return NotFound();
+
         _db.NonWorkingDays.Remove(item);
         await _db.SaveChangesAsync();
         return NoContent();
