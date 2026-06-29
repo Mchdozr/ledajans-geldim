@@ -4,6 +4,7 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthState
+@inject LocationService LocationService
 
 <PageTitle>Giriş - Ledajans Geldim</PageTitle>
 
@@ -65,10 +66,7 @@
     {
         var state = await AuthState.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated == true)
-        {
-            var url = state.User.IsInRole(Roles.Admin) ? "admin/select-location" : "";
-            Navigation.NavigateTo(url);
-        }
+            await NavigateAfterLoginAsync(state);
     }
 
     private async Task HandleLogin()
@@ -81,10 +79,27 @@
         if (error is null)
         {
             var state = await AuthState.GetAuthenticationStateAsync();
-            var defaultUrl = state.User.IsInRole(Roles.Admin) ? "admin/select-location" : "";
-            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? defaultUrl : Uri.UnescapeDataString(ReturnUrl));
+            await NavigateAfterLoginAsync(state);
         }
         else
             _error = error;
+    }
+
+    private async Task NavigateAfterLoginAsync(AuthenticationState state)
+    {
+        if (state.User.IsInRole(Roles.Admin))
+        {
+            if (!await LocationService.HasSelectionAsync())
+            {
+                Navigation.NavigateTo("admin/select-location");
+                return;
+            }
+
+            var adminUrl = string.IsNullOrWhiteSpace(ReturnUrl) ? "admin/users" : Uri.UnescapeDataString(ReturnUrl);
+            Navigation.NavigateTo(adminUrl);
+            return;
+        }
+
+        Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : Uri.UnescapeDataString(ReturnUrl));
     }
 }
