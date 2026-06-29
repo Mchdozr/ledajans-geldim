@@ -126,13 +126,17 @@ public class UsersController : ControllerBase
             .Select(l => l.Name)
             .FirstOrDefaultAsync();
 
+        var department = await NormalizeDepartmentAsync(locationId.Value, request.Department);
+        if (department is null)
+            return BadRequest(new { message = "Geçersiz departman seçimi." });
+
         var user = new ApplicationUser
         {
             UserName = request.UserName,
             Email = request.Email,
             EmailConfirmed = true,
             FullName = request.FullName,
-            Department = NormalizeDepartment(request.Department),
+            Department = department,
             IsActive = true,
             LocationId = userLocationId
         };
@@ -159,10 +163,14 @@ public class UsersController : ControllerBase
         if (newRole == Roles.Employee && user.LocationId != locationId && request.LocationId != locationId)
             return NotFound();
 
+        var department = await NormalizeDepartmentAsync(locationId.Value, request.Department);
+        if (department is null)
+            return BadRequest(new { message = "Geçersiz departman seçimi." });
+
         user.FullName = request.FullName;
         user.Email = request.Email;
         user.IsActive = request.IsActive;
-        user.Department = NormalizeDepartment(request.Department);
+        user.Department = department;
 
         if (newRole == Roles.Employee)
             user.LocationId = request.LocationId ?? locationId;
@@ -257,8 +265,19 @@ public class UsersController : ControllerBase
         LocationName = locationName
     };
 
-    private static string NormalizeDepartment(string? department)
-        => Departments.All.Contains(department ?? "") ? department! : Departments.Teknik;
+    private async Task<string?> NormalizeDepartmentAsync(int locationId, string? department)
+    {
+        if (string.IsNullOrWhiteSpace(department))
+            return await _db.Departments
+                .Where(d => d.LocationId == locationId)
+                .OrderBy(d => d.SortOrder)
+                .Select(d => d.Name)
+                .FirstOrDefaultAsync();
+
+        var trimmed = department.Trim();
+        var exists = await _db.Departments.AnyAsync(d => d.LocationId == locationId && d.Name == trimmed);
+        return exists ? trimmed : null;
+    }
 
     private static string ShortDeviceId(string deviceId)
         => deviceId.Length <= 8 ? deviceId : deviceId[..8] + "…";

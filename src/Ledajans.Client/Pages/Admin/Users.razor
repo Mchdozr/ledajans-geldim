@@ -1,6 +1,7 @@
 @page "/admin/users"
 @attribute [Authorize(Roles = "Admin")]
 @inject UserService UserService
+@inject DepartmentService DepartmentService
 @inject ReportService ReportService
 @inject GeolocationService GeolocationService
 @inject HttpClient Http
@@ -147,9 +148,9 @@
             <MudSelectItem Value="@("Admin")">Yönetici</MudSelectItem>
         </MudSelect>
         <MudSelect @bind-Value="_department" Label="Departman" Variant="Variant.Outlined" Margin="Margin.Dense">
-            @foreach (var d in Departments.All)
+            @foreach (var d in _departments)
             {
-                <MudSelectItem Value="@d">@d</MudSelectItem>
+                <MudSelectItem Value="@d.Name">@d.Name</MudSelectItem>
             }
         </MudSelect>
         @if (!_isNew)
@@ -280,6 +281,7 @@
 
 @code {
     private List<UserDto> _users = new();
+    private List<DepartmentDto> _departments = new();
     private bool _loading = true;
     private string _search = "";
 
@@ -347,7 +349,10 @@
     private async Task Load()
     {
         _loading = true;
+        _departments = await DepartmentService.GetAllAsync();
         _users = await UserService.GetAllAsync();
+        if (_departments.Count > 0 && !_departments.Any(d => d.Name == _department))
+            _department = _departments[0].Name;
         _loading = false;
     }
 
@@ -356,7 +361,9 @@
         _isNew = true;
         _editingId = null;
         _fullName = ""; _userName = ""; _email = null; _password = ""; _editPassword = "";
-        _role = "Employee"; _department = Departments.Teknik; _isActive = true;
+        _role = "Employee";
+        _department = _departments.FirstOrDefault()?.Name ?? Departments.Teknik;
+        _isActive = true;
         _editVisible = true;
     }
 

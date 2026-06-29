@@ -1,0 +1,127 @@
+@page "/admin/departments"
+@attribute [Authorize(Roles = "Admin")]
+@inject DepartmentService DepartmentService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Departmanlar - Ledajans</PageTitle>
+
+<div class="page-header mb-4">
+    <MudText Typo="Typo.h5">Departmanlar</MudText>
+    <div class="subtitle">Seçili kuruma ait departmanları yönetin</div>
+</div>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-4 mb-4" Style="max-width:520px;">
+    <div class="d-flex flex-wrap gap-2 align-center">
+        <MudTextField @bind-Value="_newName" Label="Yeni departman" Variant="Variant.Outlined"
+                      Margin="Margin.Dense" Class="flex-grow-1" Style="min-width:200px;"
+                      Disabled="_saving" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddAsync" Disabled="_saving || string.IsNullOrWhiteSpace(_newName)">
+            Ekle
+        </MudButton>
+    </div>
+</MudPaper>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-0" Style="max-width:520px;">
+    @if (_loading)
+    {
+        <div class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        </div>
+    }
+    else if (_departments.Count == 0)
+    {
+        <div class="pa-6 text-center mud-text-secondary">
+            Henüz departman yok. Yukarıdan ekleyin.
+        </div>
+    }
+    else
+    {
+        <MudList T="DepartmentDto" Dense="true">
+            @foreach (var dept in _departments)
+            {
+                <MudListItem T="DepartmentDto">
+                    <div class="d-flex align-center justify-space-between" style="width:100%;">
+                        <MudText Typo="Typo.body1" Style="font-weight:600;">@dept.Name</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       Disabled="_saving" OnClick="@(() => DeleteAsync(dept))" />
+                    </div>
+                </MudListItem>
+                <MudDivider />
+            }
+        </MudList>
+    }
+</MudPaper>
+
+@code {
+    private List<DepartmentDto> _departments = [];
+    private string _newName = "";
+    private bool _loading = true;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _departments = await DepartmentService.GetAllAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Departmanlar yüklenemedi.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+
+        _saving = true;
+        var (ok, error, item) = await DepartmentService.CreateAsync(_newName.Trim());
+        _saving = false;
+
+        if (!ok)
+        {
+            Snackbar.Add(error ?? "Eklenemedi.", Severity.Error);
+            return;
+        }
+
+        if (item is not null)
+            _departments.Add(item);
+
+        _departments = _departments.OrderBy(d => d.SortOrder).ThenBy(d => d.Name).ToList();
+        _newName = "";
+        Snackbar.Add("Departman eklendi.", Severity.Success);
+    }
+
+    private async Task DeleteAsync(DepartmentDto dept)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Departman silinsin mi?",
+            $"\"{dept.Name}\" departmanı kaldırılacak.",
+            yesText: "Sil",
+            cancelText: "Vazgeç");
+
+        if (confirm != true) return;
+
+        _saving = true;
+        var (ok, error) = await DepartmentService.DeleteAsync(dept.Id);
+        _saving = false;
+
+        if (!ok)
+        {
+            Snackbar.Add(error ?? "Silinemedi.", Severity.Error);
+            return;
+        }
+
+        _departments.RemoveAll(d => d.Id == dept.Id);
+        Snackbar.Add("Departman silindi.", Severity.Success);
+    }
+}

@@ -9,6 +9,20 @@ public record LocationDto
     public string Code { get; set; } = string.Empty;
 }
 
+public record DepartmentDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+}
+
+public record CreateDepartmentRequest
+{
+    [Required(ErrorMessage = "Departman adı gerekli")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+}
+
 public record LoginRequest
 {
     [Required(ErrorMessage = "Kullanıcı adı gerekli")]

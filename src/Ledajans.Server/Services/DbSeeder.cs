@@ -135,6 +135,8 @@ public static class DbSeeder
             {
                 db.CompanySettings.Add(new CompanySettings { LocationId = locationId });
             }
+
+            await EnsureDefaultDepartmentsAsync(db, locationId);
         }
 
         await db.SaveChangesAsync();
@@ -156,6 +158,22 @@ public static class DbSeeder
 
             if (employeesWithoutLocation.Count > 0)
                 await db.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsureDefaultDepartmentsAsync(AppDbContext db, int locationId)
+    {
+        if (await db.Departments.AnyAsync(d => d.LocationId == locationId))
+            return;
+
+        for (var i = 0; i < Departments.All.Length; i++)
+        {
+            db.Departments.Add(new Department
+            {
+                LocationId = locationId,
+                Name = Departments.All[i],
+                SortOrder = i + 1
+            });
         }
     }
 

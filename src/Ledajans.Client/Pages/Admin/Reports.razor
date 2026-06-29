@@ -4,6 +4,7 @@
 @inject SettingsService SettingsService
 @inject AttendanceService AttendanceService
 @inject UserService UserService
+@inject DepartmentService DepartmentService
 @inject GeolocationService GeolocationService
 @inject HttpClient Http
 @inject ISnackbar Snackbar
@@ -22,7 +23,7 @@
                    Margin="Margin.Dense" Clearable="true" Class="mb-3" Style="max-width:280px;"
                    @bind-Value:after="OnDepartmentChanged">
             <MudSelectItem T="string" Value="@(null)">Tümü</MudSelectItem>
-            @foreach (var d in Departments.All)
+            @foreach (var d in _departmentNames)
             {
                 <MudSelectItem T="string" Value="@d">@d</MudSelectItem>
             }
@@ -333,6 +334,7 @@
     private List<AttendanceReportItem> _items = new();
     private List<UserDto> _users = new();
     private List<UserDto> _employeeUsers = new();
+    private List<string> _departmentNames = new();
     private TodaySummaryResponse _summary = new();
     private DateTime? _from = AppTime.TodayDate.AddDays(-30);
     private DateTime? _to = AppTime.TodayDate;
@@ -356,6 +358,8 @@
     {
         try
         {
+            var departments = await DepartmentService.GetAllAsync();
+            _departmentNames = departments.Select(d => d.Name).ToList();
             _users = await UserService.GetAllAsync();
             _employeeUsers = _users.Where(u => u.Role == Roles.Employee && u.IsActive).ToList();
             var policy = await SettingsService.GetAttendancePolicyAsync();
