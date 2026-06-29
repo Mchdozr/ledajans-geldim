@@ -39,21 +39,25 @@ Proje klasöründe çalıştırın (`docker-compose.yml` dosyasının olduğu ye
 ```powershell
 cd C:\Users\kacma\ledajans-geldim
 git pull
-docker compose down
-docker compose build --no-cache
+powershell -ExecutionPolicy Bypass -File scripts\docker-up.ps1
+```
+
+Manuel:
+
+```powershell
+docker compose down --remove-orphans
+docker compose build --no-cache app
 docker compose up -d
 ```
 
-- Uygulama: http://localhost:8080
-- Sürüm kontrolü: http://localhost:8080/version.txt → `device-binding-v2` görünmeli
-- Sağlık: http://localhost:8080/health → `"deviceBindingEnabled": true`
+**Doğrulama (eski sürümde `0c1e170` görürsünüz — yeniden derleyin):**
 
-Demo çalışanlar (Docker): `calisan1` / `calisan2` — şifre: `Calisan123!`
+| URL | Beklenen |
+|-----|----------|
+| http://localhost:8080/version.txt | `device-binding-v2` |
+| http://localhost:8080/health | `"deviceBindingEnabled": true` |
 
-**Cihaz eşlemesi testi** (admin muaf):
-1. Admin → sol menü → **Cihaz Eşlemeleri**
-2. Çıkış → `calisan1` ile giriş → sayfada kayıt görünür
-3. Çıkış → `calisan2` ile giriş → hata mesajı
+Demo çalışanlar: `calisan1` / `calisan2` — şifre: `Calisan123!`
 
 ## Varsayılan Yönetici
 `appsettings.json > Seed` bölümünden ayarlanır:
