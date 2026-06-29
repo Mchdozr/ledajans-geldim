@@ -38,7 +38,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<UserDevice>(e =>
         {
             e.HasIndex(d => d.DeviceId).IsUnique();
-            e.HasIndex(d => d.UserId);
+            e.HasIndex(d => d.UserId).IsUnique();
             e.HasOne(d => d.User)
                 .WithMany()
                 .HasForeignKey(d => d.UserId)

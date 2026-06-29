@@ -46,6 +46,15 @@ public class DeviceBindingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SameUserDifferentDevice_BlocksLogin()
+    {
+        await _service.ValidateAndRegisterAsync("user-1", "device-abc-12345678", null);
+        var result = await _service.ValidateAndRegisterAsync("user-1", "device-xyz-9876543210", null);
+        Assert.False(result.Allowed);
+        Assert.Contains("başka bir cihaz", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task EmptyDeviceId_BlocksLogin()
     {
         var result = await _service.ValidateAndRegisterAsync("user-1", "", null);

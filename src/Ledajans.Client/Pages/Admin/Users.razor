@@ -30,7 +30,7 @@
     </div>
 
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-3" Dense="true">
-        Cihaz eşlemesi aktif — yalnızca <strong>Çalışan</strong> rolü için geçerlidir.
+        Cihaz eşlemesi aktif — çalışan başına tek cihaz/tarayıcı.
         Detay: menüden <MudLink Href="admin/devices">Cihaz Eşlemeleri</MudLink>
     </MudAlert>
 
@@ -80,7 +80,7 @@
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                      Color="@(context.BoundDeviceCount > 0 ? Color.Info : Color.Default)"
                                      Icon="@Icons.Material.Filled.PhonelinkLock">
-                                @(context.BoundDeviceCount > 0 ? $"Cihaz kayıtlı ({context.BoundDeviceCount})" : "Cihaz yok")
+                                @(context.BoundDeviceCount > 0 ? "Cihaz kayıtlı" : "Cihaz yok")
                             </MudChip>
                         }
                     </div>

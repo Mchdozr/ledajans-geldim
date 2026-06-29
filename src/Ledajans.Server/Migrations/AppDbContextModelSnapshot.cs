@@ -263,7 +263,8 @@ namespace Ledajans.Server.Migrations
                     b.HasIndex("DeviceId")
                         .IsUnique();
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("UserDevices");
                 });

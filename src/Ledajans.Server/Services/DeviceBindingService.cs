@@ -23,34 +23,52 @@ public class DeviceBindingService : IDeviceBindingService
             return new DeviceBindingResult(false, "Geçersiz cihaz kimliği.");
         }
 
-        var existing = await _db.UserDevices.FirstOrDefaultAsync(d => d.DeviceId == deviceId);
+        var deviceBinding = await _db.UserDevices.FirstOrDefaultAsync(d => d.DeviceId == deviceId);
+        var userBinding = await _db.UserDevices.FirstOrDefaultAsync(d => d.UserId == userId);
         var now = DateTime.UtcNow;
+        var agent = TruncateUserAgent(userAgent);
 
-        if (existing is null)
+        if (deviceBinding is not null && deviceBinding.UserId != userId)
         {
-            _db.UserDevices.Add(new UserDevice
-            {
-                DeviceId = deviceId,
-                UserId = userId,
-                RegisteredAtUtc = now,
-                LastLoginUtc = now,
-                UserAgent = TruncateUserAgent(userAgent)
-            });
+            return new DeviceBindingResult(false,
+                "Bu cihaz daha önce başka bir kullanıcı için kayıt edilmiştir. Yöneticinize başvurun.");
+        }
+
+        if (userBinding is not null && userBinding.DeviceId != deviceId)
+        {
+            return new DeviceBindingResult(false,
+                "Hesabınız başka bir cihaz veya tarayıcıda kayıtlıdır. İlk giriş yaptığınız yerden devam edin veya yöneticinize başvurun.");
+        }
+
+        if (deviceBinding is not null)
+        {
+            deviceBinding.LastLoginUtc = now;
+            if (agent is not null)
+                deviceBinding.UserAgent = agent;
             await _db.SaveChangesAsync();
             return new DeviceBindingResult(true, null);
         }
 
-        if (existing.UserId == userId)
+        _db.UserDevices.Add(new UserDevice
         {
-            existing.LastLoginUtc = now;
-            if (!string.IsNullOrWhiteSpace(userAgent))
-                existing.UserAgent = TruncateUserAgent(userAgent);
+            DeviceId = deviceId,
+            UserId = userId,
+            RegisteredAtUtc = now,
+            LastLoginUtc = now,
+            UserAgent = agent
+        });
+
+        try
+        {
             await _db.SaveChangesAsync();
-            return new DeviceBindingResult(true, null);
+        }
+        catch (DbUpdateException)
+        {
+            return new DeviceBindingResult(false,
+                "Cihaz kaydı oluşturulamadı. Yöneticinize başvurun.");
         }
 
-        return new DeviceBindingResult(false,
-            "Bu cihaz daha önce başka bir kullanıcı için kayıt edilmiştir. Yöneticinize başvurun.");
+        return new DeviceBindingResult(true, null);
     }
 
     private static string? TruncateUserAgent(string? userAgent)
