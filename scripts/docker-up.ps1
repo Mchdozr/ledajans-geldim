@@ -23,5 +23,5 @@ Write-Host "Health:" -ForegroundColor Yellow
 (Invoke-RestMethod -Uri "http://localhost:8080/health" -TimeoutSec 10) | ConvertTo-Json -Compress
 
 Write-Host ""
-Write-Host "Beklenen: version.txt = device-binding-v2, health icinde deviceBindingEnabled = true" -ForegroundColor Green
+Write-Host "Beklenen: version.txt = multi-location-v1, health icinde deviceBindingEnabled = true" -ForegroundColor Green
 Write-Host "Uygulama: http://localhost:8080" -ForegroundColor Green
