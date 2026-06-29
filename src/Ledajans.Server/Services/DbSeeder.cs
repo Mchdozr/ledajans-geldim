@@ -80,5 +80,35 @@ public static class DbSeeder
                 await db.SaveChangesAsync();
             }
         }
+
+        if (config.GetValue("Seed:CreateDemoEmployees", false))
+        {
+            await EnsureDemoEmployeeAsync(userManager, "calisan1", "Test Calisan 1", "Calisan123!");
+            await EnsureDemoEmployeeAsync(userManager, "calisan2", "Test Calisan 2", "Calisan123!");
+        }
+    }
+
+    private static async Task EnsureDemoEmployeeAsync(
+        UserManager<ApplicationUser> userManager,
+        string userName,
+        string fullName,
+        string password)
+    {
+        if (await userManager.FindByNameAsync(userName) is not null)
+            return;
+
+        var user = new ApplicationUser
+        {
+            UserName = userName,
+            Email = $"{userName}@ledajans.local",
+            EmailConfirmed = true,
+            FullName = fullName,
+            Department = Departments.Teknik,
+            IsActive = true
+        };
+
+        var result = await userManager.CreateAsync(user, password);
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(user, Roles.Employee);
     }
 }

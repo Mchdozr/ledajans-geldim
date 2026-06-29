@@ -90,6 +90,18 @@ public record UserDto
     public int BoundDeviceCount { get; set; }
 }
 
+public record UserDeviceBindingDto
+{
+    public int Id { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string DeviceIdShort { get; set; } = string.Empty;
+    public DateTime RegisteredAtUtc { get; set; }
+    public DateTime LastLoginUtc { get; set; }
+    public string? UserAgent { get; set; }
+}
+
 public record CreateUserRequest
 {
     [Required(ErrorMessage = "Kullanıcı adı gerekli")]

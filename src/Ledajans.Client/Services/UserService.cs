@@ -42,6 +42,9 @@ public class UserService
         return await ParseAsync(response);
     }
 
+    public async Task<List<UserDeviceBindingDto>> GetDeviceBindingsAsync()
+        => await _http.GetJsonOrDefaultAsync<List<UserDeviceBindingDto>>("api/users/device-bindings") ?? new();
+
     private static async Task<(bool, string?)> ParseAsync(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode) return (true, null);

@@ -39,6 +39,40 @@ public class UsersController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("device-bindings")]
+    public async Task<ActionResult<List<UserDeviceBindingDto>>> GetDeviceBindings()
+    {
+        var rows = await _db.UserDevices
+            .OrderByDescending(d => d.LastLoginUtc)
+            .ToListAsync();
+
+        if (rows.Count == 0)
+            return Ok(new List<UserDeviceBindingDto>());
+
+        var userIds = rows.Select(r => r.UserId).Distinct().ToList();
+        var users = await _userManager.Users
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id);
+
+        var result = rows.Select(d =>
+        {
+            users.TryGetValue(d.UserId, out var user);
+            return new UserDeviceBindingDto
+            {
+                Id = d.Id,
+                UserId = d.UserId,
+                UserName = user?.UserName ?? "—",
+                FullName = user?.FullName ?? "—",
+                DeviceIdShort = ShortDeviceId(d.DeviceId),
+                RegisteredAtUtc = d.RegisteredAtUtc,
+                LastLoginUtc = d.LastLoginUtc,
+                UserAgent = d.UserAgent
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create(CreateUserRequest request)
     {
@@ -140,4 +174,7 @@ public class UsersController : ControllerBase
 
     private static string NormalizeDepartment(string? department)
         => Departments.All.Contains(department ?? "") ? department! : Departments.Teknik;
+
+    private static string ShortDeviceId(string deviceId)
+        => deviceId.Length <= 8 ? deviceId : deviceId[..8] + "…";
 }

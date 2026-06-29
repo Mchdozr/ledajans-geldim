@@ -1,0 +1,124 @@
+@page "/admin/devices"
+@attribute [Authorize(Roles = "Admin")]
+@inject UserService UserService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Cihaz Eşlemeleri - Ledajans</PageTitle>
+
+<div class="page-header mb-3">
+    <MudText Typo="Typo.h5">Cihaz Eşlemeleri</MudText>
+    <div class="subtitle">Çalışan hesaplarının kayıtlı olduğu cihazlar</div>
+</div>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4" Dense="false">
+    <strong>Nasıl test edilir?</strong>
+    <ol class="mt-2 mb-0 pl-4">
+        <li>Çıkış yapın → <code>calisan1</code> / <code>Calisan123!</code> ile giriş yapın</li>
+        <li>Çıkış yapın → <code>calisan2</code> ile aynı tarayıcıdan giriş deneyin → hata almalısınız</li>
+        <li>Bu sayfada <strong>calisan1</strong> için kayıt görünür</li>
+    </ol>
+    <MudText Typo="Typo.caption" Class="mt-2 mud-text-secondary">
+        Yönetici (admin) hesapları cihaz kontrolünden muafdır.
+    </MudText>
+</MudAlert>
+
+<MudPaper Elevation="0" Class="ledajans-card pa-3">
+    <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
+        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">
+            Kayıtlı cihazlar (@_items.Count)
+        </MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load" Disabled="_loading">
+            Yenile
+        </MudButton>
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_items.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+            Henüz kayıtlı cihaz yok. Bir <strong>çalışan</strong> hesabıyla giriş yaptığınızda burada görünür.
+        </MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+            <thead>
+                <tr>
+                    <th>Çalışan</th>
+                    <th>Cihaz ID</th>
+                    <th>İlk kayıt</th>
+                    <th>Son giriş</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr>
+                        <td>
+                            <strong>@item.FullName</strong><br />
+                            <span class="mud-text-secondary">@@@item.UserName</span>
+                        </td>
+                        <td><code>@item.DeviceIdShort</code></td>
+                        <td>@TurkishFormat.FormatDateTime(item.RegisteredAtUtc.AddHours(3))</td>
+                        <td>@TurkishFormat.FormatDateTime(item.LastLoginUtc.AddHours(3))</td>
+                        <td>
+                            <MudIconButton Icon="@Icons.Material.Filled.PhonelinkErase" Size="Size.Small"
+                                           Color="Color.Error" title="Cihaz eşlemesini kaldır"
+                                           OnClick="@(() => ClearBinding(item))" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    private List<UserDeviceBindingDto> _items = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true;
+        try
+        {
+            _items = await UserService.GetDeviceBindingsAsync();
+        }
+        catch
+        {
+            _items = new();
+            Snackbar.Add("Cihaz listesi yüklenemedi.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ClearBinding(UserDeviceBindingDto item)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Cihaz eşlemesi kaldırılsın mı?",
+            $"{item.FullName} için bu cihaz kaydı silinir.",
+            yesText: "Kaldır", cancelText: "Vazgeç");
+
+        if (confirm != true) return;
+
+        var (ok, error) = await UserService.ClearDevicesAsync(item.UserId);
+        if (ok)
+        {
+            Snackbar.Add("Cihaz eşlemesi kaldırıldı.", Severity.Success);
+            await Load();
+        }
+        else
+            Snackbar.Add(error ?? "İşlem başarısız.", Severity.Error);
+    }
+}

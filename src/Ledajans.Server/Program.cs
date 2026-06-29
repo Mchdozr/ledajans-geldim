@@ -146,10 +146,22 @@ app.MapControllers();
 app.MapGet("/health", async (AppDbContext db) =>
 {
     var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    var deviceCount = 0;
+    try
+    {
+        deviceCount = await db.UserDevices.CountAsync();
+    }
+    catch
+    {
+        // tablo henüz yok
+    }
+
     return Results.Ok(new
     {
         status = "ok",
         app = "Ledajans Geldim",
+        deviceBindingEnabled = true,
+        userDeviceCount = deviceCount,
         migrationsPending = pending.Count,
         migrations = pending
     });

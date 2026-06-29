@@ -1,9 +1,7 @@
-using Ledajans.Server.Data;
 using Ledajans.Server.Services;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Ledajans.Server.Controllers;
 

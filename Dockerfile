@@ -14,7 +14,9 @@ RUN dotnet workload install wasm-tools --skip-manifest-update
 RUN dotnet restore src/Ledajans.Server/Ledajans.Server.csproj
 
 COPY src/ src/
-RUN dotnet publish src/Ledajans.Server/Ledajans.Server.csproj -c Release -o /app/publish /p:UseAppHost=false
+ARG APP_VERSION=dev-local
+RUN dotnet publish src/Ledajans.Server/Ledajans.Server.csproj -c Release -o /app/publish /p:UseAppHost=false \
+    && echo "${APP_VERSION}" > /app/publish/wwwroot/version.txt
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app

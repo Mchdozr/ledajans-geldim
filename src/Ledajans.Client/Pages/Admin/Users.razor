@@ -29,6 +29,11 @@
         </MudButton>
     </div>
 
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-3" Dense="true">
+        Cihaz eşlemesi aktif — yalnızca <strong>Çalışan</strong> rolü için geçerlidir.
+        Detay: menüden <MudLink Href="admin/devices">Cihaz Eşlemeleri</MudLink>
+    </MudAlert>
+
     <div class="admin-users-table-wrap">
         <MudTable Items="_users" Loading="_loading" Hover="true" Dense="true" Striped="true"
                   Breakpoint="Breakpoint.None" Elevation="0"

@@ -34,22 +34,26 @@ dotnet run --project src/Ledajans.Server
 - Swagger: https://localhost:7259/swagger
 
 ### Docker ile
-Kod güncelledikten sonra imajı yeniden derleyin (eski WASM cache'lenmesin):
+Proje klasöründe çalıştırın (`docker-compose.yml` dosyasının olduğu yer):
 
-```bash
+```powershell
+cd C:\Users\kacma\ledajans-geldim
+git pull
 docker compose down
 docker compose build --no-cache
 docker compose up -d
 ```
 
 - Uygulama: http://localhost:8080
-- Admin: `admin` / `Admin123!`
+- Sürüm kontrolü: http://localhost:8080/version.txt → `device-binding-v2` görünmeli
+- Sağlık: http://localhost:8080/health → `"deviceBindingEnabled": true`
 
-**Cihaz eşlemesi testi** (yalnızca **Çalışan** rolü; admin muaf):
-1. Admin ile 2 çalışan kullanıcı oluşturun.
-2. Çıkış yapın → 1. çalışan ile giriş yapın (başarılı).
-3. Çıkış yapın → 2. çalışan ile aynı tarayıcıdan giriş deneyin → *"Bu cihaz daha önce başka bir kullanıcı için kayıt edilmiştir"* hatası.
-4. Admin → Kullanıcılar → durum sütununda **Cihaz kayıtlı (1)** rozeti görünür; menüden **Cihaz eşlemesini kaldır** ile sıfırlanabilir.
+Demo çalışanlar (Docker): `calisan1` / `calisan2` — şifre: `Calisan123!`
+
+**Cihaz eşlemesi testi** (admin muaf):
+1. Admin → sol menü → **Cihaz Eşlemeleri**
+2. Çıkış → `calisan1` ile giriş → sayfada kayıt görünür
+3. Çıkış → `calisan2` ile giriş → hata mesajı
 
 ## Varsayılan Yönetici
 `appsettings.json > Seed` bölümünden ayarlanır:
