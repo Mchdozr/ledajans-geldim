@@ -44,7 +44,7 @@ Script sunucuda yoksa:
 
 ```powershell
 New-Item -ItemType Directory -Path "C:\Ledajans" -Force
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Mchdozr/ledajans-geldim/main/scripts/canliya-al.ps1" -OutFile "C:\Ledajans\canliya-al.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Mchdozr/ledajans-geldim/main/scripts/canliya-al.ps1" -OutFile "C:\Ledajans\canliya-al.ps1" -UseBasicParsing -Headers @{ "User-Agent" = "Ledajans-Deploy/1.0" }
 ```
 
 `web.config` yedek yolu: `C:\Ledajans\config\web.config` (script otomatik yedekler/geri yükler).
