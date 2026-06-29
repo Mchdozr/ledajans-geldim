@@ -6,6 +6,10 @@ Write-Host "=== Ledajans Docker yeniden kurulum ===" -ForegroundColor Cyan
 
 docker compose down --remove-orphans
 docker compose build --no-cache app
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker build BASARISIZ — eski imaj calismaya devam eder, once hatayi duzeltin." -ForegroundColor Red
+    exit 1
+}
 docker compose up -d
 
 Start-Sleep -Seconds 5
