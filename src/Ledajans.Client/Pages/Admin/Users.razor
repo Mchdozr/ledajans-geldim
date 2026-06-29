@@ -85,6 +85,13 @@
                                      OnClick="@(() => OpenPassword(context))">
                             Şifre
                         </MudMenuItem>
+                        @if (context.Role == "Employee")
+                        {
+                            <MudMenuItem Icon="@Icons.Material.Filled.PhonelinkErase" IconColor="Color.Warning"
+                                         OnClick="@(() => ClearDevices(context))">
+                                Cihaz eşlemesini kaldır
+                            </MudMenuItem>
+                        }
                         <MudDivider />
                         <MudMenuItem Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error"
                                      OnClick="@(() => DeleteUser(context))">
@@ -423,6 +430,22 @@
         {
             Snackbar.Add(error ?? "Hata.", Severity.Error);
         }
+    }
+
+    private async Task ClearDevices(UserDto user)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Cihaz eşlemesi kaldırılsın mı?",
+            $"{user.FullName} için kayıtlı cihaz eşlemesi silinir. Çalışan yeni bir cihazdan giriş yapabilir.",
+            yesText: "Kaldır", cancelText: "Vazgeç");
+
+        if (confirm != true) return;
+
+        var (ok, error) = await UserService.ClearDevicesAsync(user.Id);
+        if (ok)
+            Snackbar.Add("Cihaz eşlemesi kaldırıldı.", Severity.Success);
+        else
+            Snackbar.Add(error ?? "İşlem başarısız.", Severity.Error);
     }
 
     private async Task DeleteUser(UserDto user)

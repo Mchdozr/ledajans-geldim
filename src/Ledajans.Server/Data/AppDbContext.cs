@@ -11,6 +11,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<NonWorkingDay> NonWorkingDays => Set<NonWorkingDay>();
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
+    public DbSet<UserDevice> UserDevices => Set<UserDevice>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -31,6 +32,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(n => n.User)
                 .WithMany()
                 .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserDevice>(e =>
+        {
+            e.HasIndex(d => d.DeviceId).IsUnique();
+            e.HasIndex(d => d.UserId);
+            e.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -221,3 +221,20 @@ window.ledajansDownload = function (fileName, contentType, base64) {
     link.click();
     document.body.removeChild(link);
 };
+
+window.ledajansDevice = {
+    storageKey: 'ledajans_device_id',
+
+    getOrCreateId: function () {
+        try {
+            let id = localStorage.getItem(this.storageKey);
+            if (id && id.length >= 16 && id.length <= 128) return id;
+
+            id = crypto.randomUUID();
+            localStorage.setItem(this.storageKey, id);
+            return id;
+        } catch {
+            return null;
+        }
+    }
+};

@@ -30,6 +30,7 @@ builder.Services.AddHttpClient("api", client => client.BaseAddress = new Uri(bui
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("api"));
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<GeofenceService>();
 builder.Services.AddScoped<UserService>();

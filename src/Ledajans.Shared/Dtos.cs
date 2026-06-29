@@ -9,6 +9,8 @@ public record LoginRequest
 
     [Required(ErrorMessage = "Şifre gerekli")]
     public string Password { get; set; } = string.Empty;
+
+    public string? DeviceId { get; set; }
 }
 
 public record LoginResponse

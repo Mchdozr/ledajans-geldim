@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Ledajans.Client.Auth;
 using Ledajans.Shared;
 
@@ -8,15 +7,19 @@ public class AuthService
 {
     private readonly HttpClient _http;
     private readonly AuthStateProvider _authState;
+    private readonly DeviceService _deviceService;
 
-    public AuthService(HttpClient http, AuthStateProvider authState)
+    public AuthService(HttpClient http, AuthStateProvider authState, DeviceService deviceService)
     {
         _http = http;
         _authState = authState;
+        _deviceService = deviceService;
     }
 
     public async Task<string?> LoginAsync(LoginRequest request)
     {
+        request.DeviceId = await _deviceService.GetDeviceIdAsync();
+
         var response = await _http.PostAsJsonAsync("api/auth/login", request);
         if (!response.IsSuccessStatusCode)
         {

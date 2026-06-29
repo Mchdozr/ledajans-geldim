@@ -3,6 +3,7 @@ using Ledajans.Server.Services;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Ledajans.Server.Controllers;
 
@@ -12,11 +13,16 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TokenService _tokenService;
+    private readonly IDeviceBindingService _deviceBinding;
 
-    public AuthController(UserManager<ApplicationUser> userManager, TokenService tokenService)
+    public AuthController(
+        UserManager<ApplicationUser> userManager,
+        TokenService tokenService,
+        IDeviceBindingService deviceBinding)
     {
         _userManager = userManager;
         _tokenService = tokenService;
+        _deviceBinding = deviceBinding;
     }
 
     [HttpPost("login")]
@@ -30,6 +36,18 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Hesabınız pasif durumda. Yöneticinize başvurun." });
 
         var role = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? Roles.Employee;
+
+        if (role == Roles.Employee)
+        {
+            var deviceResult = await _deviceBinding.ValidateAndRegisterAsync(
+                user.Id,
+                request.DeviceId ?? string.Empty,
+                Request.Headers.UserAgent.ToString());
+
+            if (!deviceResult.Allowed)
+                return Unauthorized(new { message = deviceResult.Message });
+        }
+
         var (token, expires) = _tokenService.CreateToken(user, role);
 
         return Ok(new LoginResponse

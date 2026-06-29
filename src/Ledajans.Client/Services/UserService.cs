@@ -36,6 +36,12 @@ public class UserService
         return await ParseAsync(response);
     }
 
+    public async Task<(bool ok, string? error)> ClearDevicesAsync(string id)
+    {
+        var response = await _http.DeleteAsync($"api/users/{id}/devices");
+        return await ParseAsync(response);
+    }
+
     private static async Task<(bool, string?)> ParseAsync(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode) return (true, null);

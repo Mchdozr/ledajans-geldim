@@ -63,6 +63,7 @@ var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<AttendanceSettings>(builder.Configuration.GetSection(AttendanceSettings.SectionName));
 builder.Services.AddScoped<IAttendancePolicyService, AttendancePolicyService>();
+builder.Services.AddScoped<IDeviceBindingService, DeviceBindingService>();
 builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddAuthentication(options =>

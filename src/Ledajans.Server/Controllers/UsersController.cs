@@ -1,4 +1,5 @@
 using Ledajans.Server.Data;
+using Ledajans.Server.Data;
 using Ledajans.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -88,6 +89,21 @@ public class UsersController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { message = string.Join(" ", result.Errors.Select(e => e.Description)) });
 
+        return NoContent();
+    }
+
+    [HttpDelete("{id}/devices")]
+    public async Task<IActionResult> ClearDevices(string id, [FromServices] AppDbContext db)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null) return NotFound();
+
+        var devices = await db.UserDevices.Where(d => d.UserId == id).ToListAsync();
+        if (devices.Count == 0)
+            return NoContent();
+
+        db.UserDevices.RemoveRange(devices);
+        await db.SaveChangesAsync();
         return NoContent();
     }
 
