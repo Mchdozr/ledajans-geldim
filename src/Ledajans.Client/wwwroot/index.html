@@ -22,6 +22,22 @@
     <link href="manifest.webmanifest" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    <script>
+        (function () {
+            var h = location.hostname;
+            if (h !== 'localhost' && h !== '127.0.0.1') return;
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    regs.forEach(function (reg) { reg.unregister(); });
+                });
+            }
+            if ('caches' in window) {
+                caches.keys().then(function (keys) {
+                    keys.forEach(function (key) { caches.delete(key); });
+                });
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -41,18 +57,11 @@
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="js/app.js?v=20260629d"></script>
+    <script src="js/app.js?v=20260629e"></script>
     <script>
         window.addEventListener('load', function () {
             if (!('serviceWorker' in navigator)) return;
-
-            var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            if (isLocal) {
-                navigator.serviceWorker.getRegistrations().then(function (regs) {
-                    regs.forEach(function (reg) { reg.unregister(); });
-                });
-                return;
-            }
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;
 
             navigator.serviceWorker.register('service-worker.js').then(function (reg) {
                 reg.addEventListener('updatefound', function () {

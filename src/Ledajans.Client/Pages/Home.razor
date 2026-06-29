@@ -5,6 +5,7 @@
 @inject GeolocationService GeolocationService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
+@inject LocationService LocationService
 @inject ISnackbar Snackbar
 
 <PageTitle>Geldim - Ledajans</PageTitle>
@@ -220,7 +221,8 @@
             var state = await AuthState.GetAuthenticationStateAsync();
             if (state.User.IsInRole(Roles.Admin))
             {
-                Navigation.NavigateTo("admin/users", replace: true);
+                var adminUrl = await LocationService.HasSelectionAsync() ? "admin/users" : "admin/select-location";
+                Navigation.NavigateTo(adminUrl, replace: true);
                 return;
             }
 

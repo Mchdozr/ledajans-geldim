@@ -19,7 +19,7 @@ services:
     build:
       context: .
       args:
-        APP_VERSION: multi-location-v2
+        APP_VERSION: multi-location-v3
     container_name: ledajans-app-dev
     ports:
       - "8080:8080"

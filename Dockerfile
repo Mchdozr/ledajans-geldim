@@ -20,6 +20,12 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 ARG APP_VERSION=device-binding-v2
 COPY --from=build /app/publish .
+RUN rm -f wwwroot/service-worker-assets.js && \
+    printf '%s\n' \
+      "self.addEventListener('install', function (e) { self.skipWaiting(); });" \
+      "self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });" \
+      "self.addEventListener('fetch', function () {});" \
+      > wwwroot/service-worker.js
 RUN echo "${APP_VERSION}" > wwwroot/version.txt
 
 ENV ASPNETCORE_URLS=http://+:8080
