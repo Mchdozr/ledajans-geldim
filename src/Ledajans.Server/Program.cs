@@ -143,29 +143,45 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+Exception? startupError = null;
+
 app.MapGet("/health", async (AppDbContext db) =>
 {
-    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    var pending = new List<string>();
     var deviceCount = 0;
+
     try
     {
+        pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
         deviceCount = await db.UserDevices.CountAsync();
     }
-    catch
+    catch (Exception ex)
     {
-        // tablo henüz yok
+        return Results.Ok(new
+        {
+            status = "degraded",
+            app = "Ledajans Geldim",
+            startupError = startupError?.Message ?? ex.Message,
+            deviceBindingEnabled = true,
+            userDeviceCount = deviceCount,
+            migrationsPending = pending.Count,
+            migrations = pending
+        });
     }
 
     return Results.Ok(new
     {
-        status = "ok",
+        status = startupError is null && pending.Count == 0 ? "ok" : "degraded",
         app = "Ledajans Geldim",
+        startupError = startupError?.Message,
         deviceBindingEnabled = true,
         userDeviceCount = deviceCount,
         migrationsPending = pending.Count,
         migrations = pending
     });
 });
+
 app.MapFallbackToFile("index.html");
 
 try
@@ -174,12 +190,13 @@ try
 }
 catch (Exception ex)
 {
+    startupError = ex;
     var logDir = Path.Combine(app.Environment.ContentRootPath, "logs");
     Directory.CreateDirectory(logDir);
     await File.WriteAllTextAsync(
         Path.Combine(logDir, "startup-error.txt"),
         $"[{DateTime.UtcNow:O}]\n{ex}");
-    throw;
+    Console.Error.WriteLine(ex);
 }
 
 app.Run();
