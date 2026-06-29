@@ -16,12 +16,8 @@ namespace Ledajans.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
-                DELETE ud FROM UserDevices ud
-                INNER JOIN (
-                    SELECT UserId, MAX(Id) AS KeepId
-                    FROM UserDevices
-                    GROUP BY UserId
-                ) latest ON ud.UserId = latest.UserId AND ud.Id <> latest.KeepId
+                DELETE t1 FROM UserDevices t1
+                INNER JOIN UserDevices t2 ON t1.UserId = t2.UserId AND t1.Id < t2.Id
                 """);
 
             migrationBuilder.DropIndex(

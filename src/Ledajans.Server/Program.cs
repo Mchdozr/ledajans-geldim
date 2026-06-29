@@ -168,6 +168,18 @@ app.MapGet("/health", async (AppDbContext db) =>
 });
 app.MapFallbackToFile("index.html");
 
-await DbSeeder.SeedAsync(app.Services, app.Configuration);
+try
+{
+    await DbSeeder.SeedAsync(app.Services, app.Configuration);
+}
+catch (Exception ex)
+{
+    var logDir = Path.Combine(app.Environment.ContentRootPath, "logs");
+    Directory.CreateDirectory(logDir);
+    await File.WriteAllTextAsync(
+        Path.Combine(logDir, "startup-error.txt"),
+        $"[{DateTime.UtcNow:O}]\n{ex}");
+    throw;
+}
 
 app.Run();
