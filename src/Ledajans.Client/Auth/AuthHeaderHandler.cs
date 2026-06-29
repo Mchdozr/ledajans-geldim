@@ -12,18 +12,15 @@ public class AuthHeaderHandler : DelegatingHandler
     private readonly ILocalStorageService _localStorage;
     private readonly AuthStateProvider _authState;
     private readonly NavigationManager _navigation;
-    private readonly LocationService _locationService;
 
     public AuthHeaderHandler(
         ILocalStorageService localStorage,
         AuthStateProvider authState,
-        NavigationManager navigation,
-        LocationService locationService)
+        NavigationManager navigation)
     {
         _localStorage = localStorage;
         _authState = authState;
         _navigation = navigation;
-        _locationService = locationService;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(
@@ -36,9 +33,12 @@ public class AuthHeaderHandler : DelegatingHandler
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        var locationCode = await _locationService.GetCodeAsync();
+        var locationCode = await _localStorage.GetItemAsStringAsync(LocationService.CodeKey, cancellationToken);
         if (!string.IsNullOrWhiteSpace(locationCode))
+        {
+            locationCode = locationCode.Trim().Trim('"');
             request.Headers.TryAddWithoutValidation(LocationHeaders.Name, locationCode);
+        }
 
         var response = await base.SendAsync(request, cancellationToken);
 
