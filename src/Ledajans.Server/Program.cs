@@ -132,7 +132,8 @@ else
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+if (!runningInContainer)
+    app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 
 var contentTypeProvider = new FileExtensionContentTypeProvider();
