@@ -17,31 +17,25 @@ namespace Ledajans.Server.Migrations
         {
             migrationBuilder.Sql("""
                 DELETE t1 FROM UserDevices t1
-                INNER JOIN UserDevices t2 ON t1.UserId = t2.UserId AND t1.Id < t2.Id
+                INNER JOIN UserDevices t2 ON t1.UserId = t2.UserId AND t1.Id < t2.Id;
+                ALTER TABLE UserDevices DROP FOREIGN KEY IF EXISTS FK_UserDevices_AspNetUsers_UserId;
+                ALTER TABLE UserDevices DROP INDEX IF EXISTS IX_UserDevices_UserId;
+                ALTER TABLE UserDevices ADD UNIQUE INDEX IX_UserDevices_UserId (UserId);
+                ALTER TABLE UserDevices ADD CONSTRAINT FK_UserDevices_AspNetUsers_UserId
+                    FOREIGN KEY (UserId) REFERENCES AspNetUsers (Id) ON DELETE CASCADE;
                 """);
-
-            migrationBuilder.DropIndex(
-                name: "IX_UserDevices_UserId",
-                table: "UserDevices");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserDevices_UserId",
-                table: "UserDevices",
-                column: "UserId",
-                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_UserDevices_UserId",
-                table: "UserDevices");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserDevices_UserId",
-                table: "UserDevices",
-                column: "UserId");
+            migrationBuilder.Sql("""
+                ALTER TABLE UserDevices DROP FOREIGN KEY IF EXISTS FK_UserDevices_AspNetUsers_UserId;
+                ALTER TABLE UserDevices DROP INDEX IF EXISTS IX_UserDevices_UserId;
+                ALTER TABLE UserDevices ADD INDEX IX_UserDevices_UserId (UserId);
+                ALTER TABLE UserDevices ADD CONSTRAINT FK_UserDevices_AspNetUsers_UserId
+                    FOREIGN KEY (UserId) REFERENCES AspNetUsers (Id) ON DELETE CASCADE;
+                """);
         }
     }
 }
