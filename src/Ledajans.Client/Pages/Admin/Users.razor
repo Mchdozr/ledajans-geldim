@@ -133,10 +133,7 @@
     <DialogContent>
         <div class="admin-dialog-content">
         <MudTextField @bind-Value="_fullName" Label="Ad Soyad" Variant="Variant.Outlined" Margin="Margin.Dense" />
-        @if (_isNew)
-        {
-            <MudTextField @bind-Value="_userName" Label="Kullanıcı Adı" Variant="Variant.Outlined" Margin="Margin.Dense" />
-        }
+        <MudTextField @bind-Value="_userName" Label="Kullanıcı Adı" Variant="Variant.Outlined" Margin="Margin.Dense" />
         <MudTextField @bind-Value="_email" Label="E-posta (opsiyonel)" Variant="Variant.Outlined" Margin="Margin.Dense" />
         @if (_isNew)
         {
@@ -371,7 +368,12 @@
     {
         _isNew = false;
         _editingId = user.Id;
-        _fullName = user.FullName; _email = user.Email; _role = user.Role; _department = user.Department; _isActive = user.IsActive;
+        _fullName = user.FullName;
+        _userName = user.UserName;
+        _email = user.Email;
+        _role = user.Role;
+        _department = user.Department;
+        _isActive = user.IsActive;
         _editPassword = "";
         _editVisible = true;
     }
@@ -381,6 +383,12 @@
         if (string.IsNullOrWhiteSpace(_fullName))
         {
             Snackbar.Add("Ad soyad gerekli.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_userName))
+        {
+            Snackbar.Add("Kullanıcı adı gerekli.", Severity.Warning);
             return;
         }
 
@@ -397,7 +405,12 @@
         {
             result = await UserService.UpdateAsync(_editingId!, new UpdateUserRequest
             {
-                FullName = _fullName, Email = _email, Role = _role, IsActive = _isActive, Department = _department
+                UserName = _userName.Trim(),
+                FullName = _fullName,
+                Email = _email,
+                Role = _role,
+                IsActive = _isActive,
+                Department = _department
             });
         }
 

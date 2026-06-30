@@ -167,6 +167,21 @@ public class UsersController : ControllerBase
         if (department is null)
             return BadRequest(new { message = "Geçersiz departman seçimi." });
 
+        var newUserName = request.UserName.Trim();
+        if (string.IsNullOrWhiteSpace(newUserName))
+            return BadRequest(new { message = "Kullanıcı adı gerekli." });
+
+        if (!string.Equals(user.UserName, newUserName, StringComparison.Ordinal))
+        {
+            var taken = await _userManager.FindByNameAsync(newUserName);
+            if (taken is not null && taken.Id != user.Id)
+                return BadRequest(new { message = "Bu kullanıcı adı zaten kullanımda." });
+
+            var userNameResult = await _userManager.SetUserNameAsync(user, newUserName);
+            if (!userNameResult.Succeeded)
+                return BadRequest(new { message = string.Join(" ", userNameResult.Errors.Select(e => e.Description)) });
+        }
+
         user.FullName = request.FullName;
         user.Email = request.Email;
         user.IsActive = request.IsActive;

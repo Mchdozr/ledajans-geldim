@@ -146,6 +146,9 @@ public record CreateUserRequest
 
 public record UpdateUserRequest
 {
+    [Required(ErrorMessage = "Kullanıcı adı gerekli")]
+    public string UserName { get; set; } = string.Empty;
+
     [Required(ErrorMessage = "Ad soyad gerekli")]
     public string FullName { get; set; } = string.Empty;
 
